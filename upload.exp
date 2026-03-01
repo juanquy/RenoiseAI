@@ -1,6 +1,0 @@
-#!/usr/bin/expect -f
-set timeout -1
-spawn scp -o StrictHostKeyChecking=no -r "/home/juanquy/dev/Renoise AI Plugin/ai_server" root@192.168.200.121:/root/
-expect "*assword:*"
-send "ColetteRae!2\r"
-expect eof
