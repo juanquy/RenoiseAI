@@ -163,74 +163,131 @@ local function transcribe_full_song()
     
     renoise.app():show_status("AI Suite: Processing complete! Downloading stems and writing tracks...")
     
-    local async_song = renoise.song()
-    local pattern = async_song.selected_pattern
-    local lines_in_pattern = pattern.number_of_lines
-    local bpm = async_song.transport.bpm
-    local lpb = async_song.transport.lpb
-    local lines_per_sec = (bpm * lpb) / 60.0
-    
-    -- Function to write notes to a track
-    local function write_notes(track, notes_array, instr_idx)
-      for _, note in ipairs(notes_array) do
-        local line_index = math.floor(note.start * lines_per_sec) + 1
-        if line_index <= lines_in_pattern then
-          local line = track:line(line_index)
-          local note_col = line:note_column(1)
-          local renoise_note = math.max(0, math.min(119, note.note - 12))
-          note_col.note_value = renoise_note
-          note_col.instrument_value = instr_idx
-          note_col.volume_value = math.min(127, note.velocity)
-        end
+local function process_stems_and_notes_response(response_data)
+  local async_song = renoise.song()
+  local pattern = async_song.selected_pattern
+  local lines_in_pattern = pattern.number_of_lines
+  local bpm = async_song.transport.bpm
+  local lpb = async_song.transport.lpb
+  local lines_per_sec = (bpm * lpb) / 60.0
+  
+  -- Function to write notes to a track
+  local function write_notes(track, notes_array, instr_idx)
+    for _, note in ipairs(notes_array) do
+      local line_index = math.floor(note.start * lines_per_sec) + 1
+      if line_index <= lines_in_pattern then
+        local line = track:line(line_index)
+        local note_col = line:note_column(1)
+        local renoise_note = math.max(0, math.min(119, note.note - 12))
+        note_col.note_value = renoise_note
+        note_col.instrument_value = instr_idx
+        note_col.volume_value = math.min(127, note.velocity)
       end
     end
+  end
 
-    -- Load stems and create tracks
-    local stems_order = {"vocals", "drums", "bass", "other"}
+  -- Load the original mix if generated
+  if response_data.stems and response_data.stems.mix then
+    local url = response_data.stems.mix
+    local dict_temp = os.tmpname() .. ".wav"
+    os.execute(string.format('curl -s -L "%s" -o "%s"', url, dict_temp))
     
-    for _, stem_name in ipairs(stems_order) do
+    local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
+    instr.name = "AI generated mix"
+    if #instr.samples == 0 then instr:insert_sample_at(1) end
+    instr.samples[1].sample_buffer:load_from(dict_temp)
+    os.remove(dict_temp)
+    
+    local track = async_song:insert_track_at(#async_song.tracks)
+    track.name = "AI Mix"
+    local note_col = pattern:track(async_song.tracks[#async_song.tracks]).lines[1]:note_column(1)
+    note_col.note_value = 48 -- C-4
+    note_col.instrument_value = #async_song.instruments - 1
+  end
+
+  -- Load stems and create tracks
+  local stems_order = {"vocals", "drums", "bass", "other"}
+  
+  for _, stem_name in ipairs(stems_order) do
+    if response_data.stems and response_data.stems[stem_name] then
       local url = response_data.stems[stem_name]
-      if url then
-        local stem_temp = os.tmpname() .. ".wav"
-        -- Download the file
-        local cmd = string.format('curl -s -L "%s" -o "%s"', url, stem_temp)
-        os.execute(cmd)
-        
-        -- Create Instrument
-        local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
-        instr.name = "AI Stem: " .. stem_name
-        
-        -- Load sample
-        if #instr.samples == 0 then instr:insert_sample_at(1) end
-        local smp = instr.samples[1]
-        smp.sample_buffer:load_from(stem_temp)
-        os.remove(stem_temp)
-        
-        -- Create Track and trigger at line 1
-        local track = async_song:insert_track_at(#async_song.tracks)
-        track.name = "Stem: " .. stem_name
-        local note_col = pattern:track(async_song.tracks[#async_song.tracks]).lines[1]:note_column(1)
-        note_col.note_value = 48 -- C-4
-        note_col.instrument_value = #async_song.instruments - 1
-      end
+      local stem_temp = os.tmpname() .. ".wav"
+      -- Download the file
+      local cmd = string.format('curl -s -L "%s" -o "%s"', url, stem_temp)
+      os.execute(cmd)
+      
+      -- Create Instrument
+      local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
+      instr.name = "AI Stem: " .. stem_name
+      
+      -- Load sample
+      if #instr.samples == 0 then instr:insert_sample_at(1) end
+      local smp = instr.samples[1]
+      smp.sample_buffer:load_from(stem_temp)
+      os.remove(stem_temp)
+      
+      -- Create Track and trigger at line 1
+      local track = async_song:insert_track_at(#async_song.tracks)
+      track.name = "Stem: " .. stem_name
+      local note_col = pattern:track(async_song.tracks[#async_song.tracks]).lines[1]:note_column(1)
+      note_col.note_value = 48 -- C-4
+      note_col.instrument_value = #async_song.instruments - 1
+    end
+  end
+  
+  -- Create MIDI Tracks for Bass and Melody
+  if response_data.notes and response_data.notes.bass then
+    local track = async_song:insert_track_at(#async_song.tracks)
+    track.name = "MIDI: Bass"
+    local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
+    instr.name = "MIDI Synth: Bass"
+    write_notes(pattern:track(async_song.tracks[#async_song.tracks]), response_data.notes.bass, #async_song.instruments - 1)
+  end
+  
+  if response_data.notes and response_data.notes.melody then
+    local track = async_song:insert_track_at(#async_song.tracks)
+    track.name = "MIDI: Melody"
+    local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
+    instr.name = "MIDI Synth: Melody"
+    write_notes(pattern:track(async_song.tracks[#async_song.tracks]), response_data.notes.melody, #async_song.instruments - 1)
+  end
+end
+
+local function transcribe_full_song()
+  local song = renoise.song()
+  local instrument = song.selected_instrument
+  local sample = instrument.samples[instrument.selected_sample_index]
+  
+  if not sample then
+    renoise.app():show_status("AI Suite: No sample selected for Full Transcription.")
+    return
+  end
+  
+  renoise.app():show_status("AI Suite: Saving temp sample...")
+  local temp_path = os.tmpname() .. ".wav"
+  local success = sample.sample_buffer:save_as(temp_path, "wav")
+  
+  if not success then return end
+  
+  renoise.app():show_status("AI Suite: Sending song to AI Demucs+BasicPitch (this will take minutes!)...")
+  
+  os_execute_curl_async(options.server_url.value .. "/transcribe_full", "POST", temp_path, false, function(raw_response)
+    os.remove(temp_path)
+    
+    if not raw_response or raw_response == "" then
+      renoise.app():show_status("AI Suite: Server Error during processing.")
+      return
     end
     
-    -- Create MIDI Tracks for Bass and Melody
-    if response_data.notes and response_data.notes.bass then
-      local track = async_song:insert_track_at(#async_song.tracks)
-      track.name = "MIDI: Bass"
-      local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
-      instr.name = "MIDI Synth: Bass"
-      write_notes(pattern:track(async_song.tracks[#async_song.tracks]), response_data.notes.bass, #async_song.instruments - 1)
+    local response_data = json.decode(raw_response)
+    if not response_data or response_data.status ~= "success" then
+      renoise.app():show_status("AI Suite: Processing failed.")
+      return
     end
     
-    if response_data.notes and response_data.notes.melody then
-      local track = async_song:insert_track_at(#async_song.tracks)
-      track.name = "MIDI: Melody"
-      local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
-      instr.name = "MIDI Synth: Melody"
-      write_notes(pattern:track(async_song.tracks[#async_song.tracks]), response_data.notes.melody, #async_song.instruments - 1)
-    end
+    renoise.app():show_status("AI Suite: Processing complete! Downloading stems and writing tracks...")
+    
+    process_stems_and_notes_response(response_data)
 
     renoise.app():show_status("AI Suite: Full Transcription Done!")
   end)
@@ -277,23 +334,11 @@ local function generate_song_dialog()
           if res and res ~= "" then
               local data = json.decode(res)
               if data and data.status == "success" then
-                 renoise.app():show_status("AI Suite: Success! Downloading audio...")
+                 renoise.app():show_status("AI Suite: Success! Downloading audio and plotting tracks...")
                  
-                 local dl_temp = os.tmpname() .. ".wav"
-                 local dl_cmd = string.format('curl -s -L "%s" -o "%s"', data.file_url, dl_temp)
-                 os.execute(dl_cmd)
+                 process_stems_and_notes_response(data)
                  
-                 local async_song = renoise.song()
-                 local instr = async_song:insert_instrument_at(async_song.selected_instrument_index + 1)
-                 instr.name = "AI: " .. style:sub(1,10)
-                 
-                 if #instr.samples == 0 then instr:insert_sample_at(1) end
-                 local smp = instr.samples[1]
-                 smp.sample_buffer:load_from(dl_temp)
-                 os.remove(dl_temp)
-                 
-                 async_song.selected_instrument_index = async_song.selected_instrument_index + 1
-                 renoise.app():show_status("AI Suite: Audio loaded into new instrument.")
+                 renoise.app():show_status("AI Suite: Multi-Track Generation Complete!")
               elseif data and data.error then
                  renoise.app():show_error("AI Suite Error: " .. data.error)
               else

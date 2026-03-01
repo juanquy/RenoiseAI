@@ -110,6 +110,73 @@ def transcribe():
         print(f"Error during transcription: {e}")
         return jsonify({"error": str(e)}), 500
 
+def process_stems_and_notes(filepath, base_job_id, original_filename=""):
+    job_dir = os.path.join(GENERATED_FOLDER, base_job_id)
+    os.makedirs(job_dir, exist_ok=True)
+    
+    try:
+        # 1. Run Demucs
+        print("Running Demucs...")
+        subprocess.run(["demucs", "-n", "htdemucs", "-o", job_dir, filepath], check=True)
+        
+        base_name = os.path.splitext(os.path.basename(filepath))[0]
+        stems_dir = os.path.join(job_dir, "htdemucs", base_name)
+        
+        bass_path = os.path.join(stems_dir, "bass.wav")
+        other_path = os.path.join(stems_dir, "other.wav")
+        drums_path = os.path.join(stems_dir, "drums.wav")
+        vocals_path = os.path.join(stems_dir, "vocals.wav")
+        
+        # 2. Run Basic Pitch
+        print("Running Basic Pitch on stems...")
+        def get_notes(p):
+            if not os.path.exists(p): return []
+            _, _, note_events = predict(p)
+            notes_res = []
+            for n in note_events:
+                notes_res.append({
+                    "start": n[0],
+                    "duration": n[1] - n[0],
+                    "note": int(n[2]),
+                    "velocity": int(n[3] * 127)
+                })
+            return notes_res
+            
+        bass_notes = get_notes(bass_path)
+        melody_notes = get_notes(other_path)
+        
+        # 3. Create URLs
+        outputs = {}
+        if original_filename:
+            outputs["mix"] = f"http://localhost:5000/download/{original_filename}"
+            
+        for stem in ["bass.wav", "other.wav", "drums.wav", "vocals.wav"]:
+            src = os.path.join(stems_dir, stem)
+            dst_name = f"{base_job_id}_{stem}"
+            dst = os.path.join(GENERATED_FOLDER, dst_name)
+            if os.path.exists(src):
+                shutil.move(src, dst)
+                outputs[stem.replace(".wav", "")] = f"http://localhost:5000/download/{dst_name}"
+        
+        # Cleanup
+        if os.path.exists(filepath): os.remove(filepath)
+        shutil.rmtree(job_dir)
+        
+        return {
+            "status": "success",
+            "stems": outputs,
+            "notes": {
+                "bass": bass_notes,
+                "melody": melody_notes
+            }
+        }
+    except subprocess.CalledProcessError as e:
+        print(f"Demucs Error: {e}")
+        return {"error": "Demucs processing failed."}
+    except Exception as e:
+        print(f"Error during full transcription: {e}")
+        return {"error": str(e)}
+
 @app.route('/transcribe_full', methods=['POST'])
 @require_api_key
 def transcribe_full():
@@ -122,85 +189,19 @@ def transcribe_full():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
     
-    # Needs a safe filename
     safe_filename = "upload_" + str(int(time.time())) + ".wav"
     filepath = os.path.join(UPLOAD_FOLDER, safe_filename)
     file.save(filepath)
     
     job_id = f"job_{int(time.time())}"
-    job_dir = os.path.join(GENERATED_FOLDER, job_id)
-    os.makedirs(job_dir, exist_ok=True)
-    
     print(f"Processing Full Transcription for: {filepath}")
     
-    try:
-        with gpu_lock:
-            # 1. Run Demucs via Subprocess (HTDemucs model is default)
-            # Demucs places outputs in: {job_dir}/htdemucs/{safe_filename_without_ext}/
-            print("Running Demucs...")
-            subprocess.run(["demucs", "-n", "htdemucs", "-o", job_dir, filepath], check=True)
-            
-            base_name = os.path.splitext(safe_filename)[0]
-            stems_dir = os.path.join(job_dir, "htdemucs", base_name)
-            
-            # Paths to the separated stems
-            bass_path = os.path.join(stems_dir, "bass.wav")
-            other_path = os.path.join(stems_dir, "other.wav")
-            drums_path = os.path.join(stems_dir, "drums.wav")
-            vocals_path = os.path.join(stems_dir, "vocals.wav")
-            
-            # 2. Run Basic Pitch on Bass and Other(Melody)
-            print("Running Basic Pitch on stems...")
-            
-            def get_notes(p):
-                print(f"Predicting notes for {p}")
-                if not os.path.exists(p): return []
-                _, _, note_events = predict(p)
-                notes_res = []
-                for n in note_events:
-                    notes_res.append({
-                        "start": n[0],
-                        "duration": n[1] - n[0],
-                        "note": int(n[2]),
-                        "velocity": int(n[3] * 127)
-                    })
-                return notes_res
-                
-            bass_notes = get_notes(bass_path)
-            melody_notes = get_notes(other_path)
-            
-            # 3. Create a ZIP file of the stems to return to the Lua client
-            # Or we can return URLs. Returning URLs is easier for Lua.
-            
-            # Move stems to the root of GENERATED_FOLDER with job_id prefix so they are accessible by /download/
-            outputs = {}
-            for stem in ["bass.wav", "other.wav", "drums.wav", "vocals.wav"]:
-                src = os.path.join(stems_dir, stem)
-                dst_name = f"{job_id}_{stem}"
-                dst = os.path.join(GENERATED_FOLDER, dst_name)
-                if os.path.exists(src):
-                    shutil.move(src, dst)
-                    outputs[stem.replace(".wav", "")] = f"http://localhost:5000/download/{dst_name}"
-            
-            # Clean up upload and temp demucs folder
-            if os.path.exists(filepath): os.remove(filepath)
-            shutil.rmtree(job_dir)
-            
-            return jsonify({
-                "status": "success",
-                "stems": outputs,
-                "notes": {
-                    "bass": bass_notes,
-                    "melody": melody_notes
-                }
-            })
-            
-    except subprocess.CalledProcessError as e:
-        print(f"Demucs Error: {e}")
-        return jsonify({"error": "Demucs processing failed."}), 500
-    except Exception as e:
-        print(f"Error during full transcription: {e}")
-        return jsonify({"error": str(e)}), 500
+    with gpu_lock:
+        result = process_stems_and_notes(filepath, job_id)
+        
+    if "error" in result:
+        return jsonify(result), 500
+    return jsonify(result)
 
 @app.route('/generate_song', methods=['POST'])
 @require_api_key
@@ -233,30 +234,25 @@ def generate_song():
             musicgen_model.set_generation_params(duration=duration)
             wav = musicgen_model.generate([gen_prompt]) 
             
-            # wav is a tensor of shape [1, 1, 32000 * duration]
-            # Save it
-            filename = f"gen_{int(time.time())}.wav"
+            # Save generated WAV
+            job_id = f"gen_{int(time.time())}"
+            filename = f"{job_id}.wav"
             filepath = os.path.join(GENERATED_FOLDER, filename)
             
-            # audio_write wants the path without extension, and adds .wav
-            # it also handles normalization and sample rate
-            # We need to squeeze the batch dimension
             audio_write(
-                os.path.join(GENERATED_FOLDER, f"gen_{int(time.time())}"), 
+                os.path.join(GENERATED_FOLDER, job_id), 
                 wav[0].cpu(), 
                 musicgen_model.sample_rate, 
                 strategy="loudness", 
                 loudness_compressor=True
             )
             
-            # audio_write appends .wav automatically
+            # Process the generated WAV through Demucs and BasicPitch
+            result = process_stems_and_notes(filepath, job_id, original_filename=filename)
             
-        file_url = f"http://localhost:5000/download/{filename}"
-        return jsonify({
-            "status": "success",
-            "file_url": file_url,
-            "info": f"Generated {duration}s clip for '{prompt}'"
-        })
+        if "error" in result:
+            return jsonify(result), 500
+        return jsonify(result)
         
     except Exception as e:
         import traceback
