@@ -223,12 +223,6 @@ def generate_song():
     
     print(f"Generating song: Style='{style}' Prompt='{prompt}' Lyrics='{lyrics}'")
     
-    if not instrumental or lyrics != "":
-        # We cannot generate vocals locally with MusicGen
-        return jsonify({
-            "error": "Local Open-Source AI (MusicGen) cannot generate Vocals/Lyrics. You must set 'Instrumental' to True unless you configure an external Suno/Udio API Key in app.py."
-        }), 400
-        
     # Construct MusicGen prompt
     gen_prompt = prompt
     if style != "":
