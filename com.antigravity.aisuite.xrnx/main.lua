@@ -129,40 +129,7 @@ local function transcribe_sample()
   end)
 end
 
-local function transcribe_full_song()
-  local song = renoise.song()
-  local instrument = song.selected_instrument
-  local sample = instrument.samples[instrument.selected_sample_index]
-  
-  if not sample then
-    renoise.app():show_status("AI Suite: No sample selected for Full Transcription.")
-    return
-  end
-  
-  renoise.app():show_status("AI Suite: Saving temp sample...")
-  local temp_path = os.tmpname() .. ".wav"
-  local success = sample.sample_buffer:save_as(temp_path, "wav")
-  
-  if not success then return end
-  
-  renoise.app():show_status("AI Suite: Sending song to AI Demucs+BasicPitch (this will take minutes!)...")
-  
-  os_execute_curl_async(options.server_url.value .. "/transcribe_full", "POST", temp_path, false, function(raw_response)
-    os.remove(temp_path)
-    
-    if not raw_response or raw_response == "" then
-      renoise.app():show_status("AI Suite: Server Error during processing.")
-      return
-    end
-    
-    local response_data = json.decode(raw_response)
-    if not response_data or response_data.status ~= "success" then
-      renoise.app():show_status("AI Suite: Processing failed.")
-      return
-    end
-    
-    renoise.app():show_status("AI Suite: Processing complete! Downloading stems and writing tracks...")
-    
+
 local function process_stems_and_notes_response(response_data)
   local async_song = renoise.song()
   local pattern = async_song.selected_pattern
