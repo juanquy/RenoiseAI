@@ -1,0 +1,8 @@
+flask
+numpy
+scipy
+basic-pitch
+torch
+torchaudio
+audiocraft
+demucs

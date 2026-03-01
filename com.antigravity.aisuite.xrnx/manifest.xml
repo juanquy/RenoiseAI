@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RenoiseScriptingTool doc_version="0">
+  <ApiVersion>6.0</ApiVersion>
+  <AutoUpgrade>true</AutoUpgrade>
+  <Id>com.antigravity.aisuite</Id>
+  <Version>1.0</Version>
+  <Author>Antigravity</Author>
+  <Name>Renoise AI Suite</Name>
+  <Category>Pattern Editor</Category>
+  <Description>AI power for Renoise: Transcription, Song Generation, and Sampling.</Description>
+  <Homepage>http://renoise.com</Homepage>
+</RenoiseScriptingTool>
