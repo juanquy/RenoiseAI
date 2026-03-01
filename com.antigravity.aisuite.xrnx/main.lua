@@ -201,6 +201,7 @@ local function transcribe_full_song()
         instr.name = "AI Stem: " .. stem_name
         
         -- Load sample
+        if #instr.samples == 0 then instr:insert_sample_at(1) end
         local smp = instr.samples[1]
         smp.sample_buffer:load_from(stem_temp)
         os.remove(stem_temp)
@@ -286,6 +287,7 @@ local function generate_song_dialog()
                  local instr = async_song:insert_instrument_at(async_song.selected_instrument_index + 1)
                  instr.name = "AI: " .. style:sub(1,10)
                  
+                 if #instr.samples == 0 then instr:insert_sample_at(1) end
                  local smp = instr.samples[1]
                  smp.sample_buffer:load_from(dl_temp)
                  os.remove(dl_temp)
