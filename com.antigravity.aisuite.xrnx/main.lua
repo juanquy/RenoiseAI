@@ -162,8 +162,17 @@ local function process_stems_and_notes_response(response_data, clear_tracks)
   
   if clear_tracks then
     for i = async_song.sequencer_track_count, 1, -1 do
-      if async_song.sequencer_track_count > 1 and async_song:track(i).is_empty then
-        async_song:delete_track_at(i)
+      if async_song.sequencer_track_count > 1 then
+        local track_is_empty = true
+        for _, p in ipairs(async_song.patterns) do
+          if not p:track(i).is_empty then
+            track_is_empty = false
+            break
+          end
+        end
+        if track_is_empty then
+          async_song:delete_track_at(i)
+        end
       end
     end
   end
