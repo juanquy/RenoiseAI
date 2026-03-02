@@ -134,13 +134,19 @@ def process_stems_and_notes(filepath, base_job_id, original_filename=""):
         # 2. Run Basic Pitch
         print("Running Basic Pitch on stems...")
         def get_notes(p):
+            import math
             if not os.path.exists(p): return []
             _, _, note_events = predict(p)
             notes_res = []
             for n in note_events:
+                start_val = float(n[0])
+                dur_val = float(n[1] - n[0])
+                if math.isnan(start_val) or math.isinf(start_val): start_val = 0.0
+                if math.isnan(dur_val) or math.isinf(dur_val): dur_val = 0.1
+                
                 notes_res.append({
-                    "start": n[0],
-                    "duration": n[1] - n[0],
+                    "start": start_val,
+                    "duration": dur_val,
                     "note": int(n[2]),
                     "velocity": int(n[3] * 127)
                 })
