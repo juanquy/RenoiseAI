@@ -233,7 +233,7 @@ def generate_song():
     duration = int(data.get('duration', 8))
     
     # Validation
-    duration = min(duration, 30) # Cap at 30s for safety
+    duration = min(duration, 120) # Cap at 120s for safety
     
     print(f"Generating song: Style='{style}' Prompt='{prompt}' Lyrics='{lyrics}'")
     

@@ -157,8 +157,16 @@ local function transcribe_sample()
 end
 
 
-local function process_stems_and_notes_response(response_data)
+local function process_stems_and_notes_response(response_data, clear_tracks)
   local async_song = renoise.song()
+  
+  if clear_tracks then
+    for i = async_song.sequencer_track_count, 1, -1 do
+      if async_song.sequencer_track_count > 1 and async_song:track(i).is_empty then
+        async_song:delete_track_at(i)
+      end
+    end
+  end
   local pattern = async_song.selected_pattern
   local lines_in_pattern = pattern.number_of_lines
   local bpm = async_song.transport.bpm
@@ -289,7 +297,7 @@ local function transcribe_full_song()
     
     renoise.app():show_status("AI Suite: Processing complete! Downloading stems and writing tracks...")
     
-    process_stems_and_notes_response(response_data)
+    process_stems_and_notes_response(response_data, false)
 
     renoise.app():show_status("AI Suite: Full Transcription Done!")
   end)
@@ -305,12 +313,20 @@ local function generate_song_dialog()
     vb:text { text = "Style/Genre:" },
     vb:textfield { id = "style_text", width = 300, text = "Cyberpunk Techno" },
     vb:text { text = "Topic/Prompt:" },
-    vb:textfield { id = "prompt_text", width = 300, text = "A dark rolling bassline" },
+    vb:textfield { id = "prompt_text", width = 450, text = "A dark rolling bassline" },
     vb:text { text = "Lyrics (Requires External API Config in Server):" },
-    vb:multiline_textfield { id = "lyrics_text", width = 300, height = 60, text = "" },
+    vb:multiline_textfield { id = "lyrics_text", width = 450, height = 80, text = "" },
     vb:row {
       vb:checkbox { id = "instrumental_check", value = true },
       vb:text { text = "Instrumental Only (Uses Local MusicGen AI)" }
+    },
+    vb:row {
+      vb:text { text = "Duration (sec):" },
+      vb:valuebox { id = "duration_val", min = 5, max = 120, value = 16 }
+    },
+    vb:row {
+      vb:checkbox { id = "clear_tracks_check", value = true },
+      vb:text { text = "Delete empty tracks before importing generated stems" }
     },
     vb:space { height = 5 },
     vb:button {
@@ -321,6 +337,8 @@ local function generate_song_dialog()
         local style = vb.views.style_text.text
         local lyrics = vb.views.lyrics_text.text
         local instrumental = vb.views.instrumental_check.value
+        local duration = vb.views.duration_val.value
+        local clear_tracks = vb.views.clear_tracks_check.value
         
         renoise.app():show_status("AI Suite: Generating song... (This may take 30+ seconds)")
         
@@ -328,8 +346,8 @@ local function generate_song_dialog()
         local function escape_str(s) return s:gsub('"', '\\"'):gsub('\n', '\\n') end
         
         local json_body = string.format(
-          '{"prompt": "%s", "style": "%s", "lyrics": "%s", "instrumental": %s, "duration": 8}', 
-          escape_str(prompt), escape_str(style), escape_str(lyrics), tostring(instrumental)
+          '{"prompt": "%s", "style": "%s", "lyrics": "%s", "instrumental": %s, "duration": %d}', 
+          escape_str(prompt), escape_str(style), escape_str(lyrics), tostring(instrumental), duration
         )
         
         os_execute_curl_async(options.server_url.value .. "/generate_song", "POST", json_body, true, function(res)
@@ -347,7 +365,7 @@ local function generate_song_dialog()
               if data and data.status == "success" then
                  renoise.app():show_status("AI Suite: Success! Downloading audio and plotting tracks...")
                  
-                 process_stems_and_notes_response(data)
+                 process_stems_and_notes_response(data, clear_tracks)
                  
                  renoise.app():show_status("AI Suite: Multi-Track Generation Complete!")
               elseif data and data.error then
