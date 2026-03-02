@@ -170,8 +170,10 @@ def process_stems_and_notes(filepath, base_job_id, original_filename=""):
                 outputs[stem.replace(".wav", "")] = f"{host_url}/download/{dst_name}"
         
         # Cleanup
-        if os.path.exists(filepath): os.remove(filepath)
-        shutil.rmtree(job_dir)
+        # We need to keep the original filepath (mix) and the moved stems for downloading.
+        # Only cleanup the demucs intermediate job directory.
+        if os.path.exists(job_dir):
+            shutil.rmtree(job_dir, ignore_errors=True)
         
         return {
             "status": "success",
