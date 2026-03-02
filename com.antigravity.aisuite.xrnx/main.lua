@@ -192,10 +192,11 @@ local function process_stems_and_notes_response(response_data)
     instr.samples[1].sample_buffer:load_from(dict_temp)
     os.remove(dict_temp)
     
-    local track = async_song:insert_track_at(#async_song.tracks)
+    local new_track_idx = async_song.sequencer_track_count + 1
+    local track = async_song:insert_track_at(new_track_idx)
     track.name = "AI Mix"
     track.visible_note_columns = 1
-    local note_col = pattern:track(#async_song.tracks).lines[1]:note_column(1)
+    local note_col = pattern:track(new_track_idx).lines[1]:note_column(1)
     note_col.note_value = 48 -- C-4
     note_col.instrument_value = #async_song.instruments - 1
   end
@@ -222,10 +223,11 @@ local function process_stems_and_notes_response(response_data)
       os.remove(stem_temp)
       
       -- Create Track and trigger at line 1
-      local track = async_song:insert_track_at(#async_song.tracks)
+      local new_track_idx = async_song.sequencer_track_count + 1
+      local track = async_song:insert_track_at(new_track_idx)
       track.name = "Stem: " .. stem_name
       track.visible_note_columns = 1
-      local note_col = pattern:track(#async_song.tracks).lines[1]:note_column(1)
+      local note_col = pattern:track(new_track_idx).lines[1]:note_column(1)
       note_col.note_value = 48 -- C-4
       note_col.instrument_value = #async_song.instruments - 1
     end
@@ -233,21 +235,23 @@ local function process_stems_and_notes_response(response_data)
   
   -- Create MIDI Tracks for Bass and Melody
   if response_data.notes and response_data.notes.bass then
-    local track = async_song:insert_track_at(#async_song.tracks)
+    local new_track_idx = async_song.sequencer_track_count + 1
+    local track = async_song:insert_track_at(new_track_idx)
     track.name = "MIDI: Bass"
     track.visible_note_columns = 1
     local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
     instr.name = "MIDI Synth: Bass"
-    write_notes(pattern:track(#async_song.tracks), response_data.notes.bass, #async_song.instruments - 1)
+    write_notes(pattern:track(new_track_idx), response_data.notes.bass, #async_song.instruments - 1)
   end
   
   if response_data.notes and response_data.notes.melody then
-    local track = async_song:insert_track_at(#async_song.tracks)
+    local new_track_idx = async_song.sequencer_track_count + 1
+    local track = async_song:insert_track_at(new_track_idx)
     track.name = "MIDI: Melody"
     track.visible_note_columns = 1
     local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
     instr.name = "MIDI Synth: Melody"
-    write_notes(pattern:track(#async_song.tracks), response_data.notes.melody, #async_song.instruments - 1)
+    write_notes(pattern:track(new_track_idx), response_data.notes.melody, #async_song.instruments - 1)
   end
 end
 
