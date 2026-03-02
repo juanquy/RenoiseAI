@@ -117,7 +117,11 @@ def process_stems_and_notes(filepath, base_job_id, original_filename=""):
     try:
         # 1. Run Demucs
         print("Running Demucs...")
-        subprocess.run(["demucs", "-n", "htdemucs", "-o", job_dir, filepath], check=True)
+        try:
+            subprocess.run(["demucs", "-n", "htdemucs", "-o", job_dir, filepath], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Demucs GPU failed ({e}), retrying on CPU...")
+            subprocess.run(["demucs", "-n", "htdemucs", "-d", "cpu", "-o", job_dir, filepath], check=True)
         
         base_name = os.path.splitext(os.path.basename(filepath))[0]
         stems_dir = os.path.join(job_dir, "htdemucs", base_name)
