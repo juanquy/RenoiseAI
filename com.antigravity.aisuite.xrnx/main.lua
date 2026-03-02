@@ -184,7 +184,7 @@ local function process_stems_and_notes_response(response_data)
   if response_data.stems and response_data.stems.mix then
     local url = response_data.stems.mix
     local dict_temp = os.tmpname() .. ".wav"
-    os.execute(string.format('curl -s -L "%s" -o "%s"', url, dict_temp))
+    os.execute(string.format('curl -s -L -H "X-API-Key: %s" "%s" -o "%s" > /dev/null 2>&1', options.api_key.value, url, dict_temp))
     
     local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
     instr.name = "AI generated mix"
@@ -207,7 +207,7 @@ local function process_stems_and_notes_response(response_data)
       local url = response_data.stems[stem_name]
       local stem_temp = os.tmpname() .. ".wav"
       -- Download the file
-      local cmd = string.format('curl -s -L "%s" -o "%s"', url, stem_temp)
+      local cmd = string.format('curl -s -L -H "X-API-Key: %s" "%s" -o "%s" > /dev/null 2>&1', options.api_key.value, url, stem_temp)
       os.execute(cmd)
       
       -- Create Instrument
