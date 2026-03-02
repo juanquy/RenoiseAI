@@ -21,10 +21,18 @@ local function os_execute_curl_async(url, method, filepath_or_body, is_json_body
   os.remove(temp_done) -- ensure it doesn't accidentally exist
   
   local cmd = ""
+  local temp_req = nil
+  
   if method == "POST" and not is_json_body and filepath_or_body then
     cmd = string.format("( curl -s -X POST -H 'X-API-Key: %s' -F 'file=@%s' '%s' > '%s' ; touch '%s' ) > /dev/null 2>&1 &", options.api_key.value, filepath_or_body, url, temp_res, temp_done)
   elseif method == "POST" and is_json_body and filepath_or_body then
-    cmd = string.format("( curl -s -X POST -H 'X-API-Key: %s' -H 'Content-Type: application/json' -d '%s' '%s' > '%s' ; touch '%s' ) > /dev/null 2>&1 &", options.api_key.value, filepath_or_body, url, temp_res, temp_done)
+    temp_req = os.tmpname()
+    local f = io.open(temp_req, "w")
+    if f then
+      f:write(filepath_or_body)
+      f:close()
+    end
+    cmd = string.format("( curl -s -X POST -H 'X-API-Key: %s' -H 'Content-Type: application/json' -d '@%s' '%s' > '%s' ; touch '%s' ) > /dev/null 2>&1 &", options.api_key.value, temp_req, url, temp_res, temp_done)
   else
     cmd = string.format("( curl -s -X %s -H 'X-API-Key: %s' '%s' > '%s' ; touch '%s' ) > /dev/null 2>&1 &", method, options.api_key.value, url, temp_res, temp_done)
   end
@@ -299,7 +307,16 @@ local function generate_song_dialog()
         
         os_execute_curl_async(options.server_url.value .. "/generate_song", "POST", json_body, true, function(res)
           if res and res ~= "" then
-              local data = json.decode(res)
+              
+              local ok, data = pcall(json.decode, json, res)
+              
+              if not ok then
+                 renoise.app():show_error("AI Suite Error: Server returned invalid JSON. Please check Renoise scripting terminal for details.")
+                 print("JSON Decode Error: ", data)
+                 print("Raw Response Fragment: ", res:sub(1, 200))
+                 return
+              end
+              
               if data and data.status == "success" then
                  renoise.app():show_status("AI Suite: Success! Downloading audio and plotting tracks...")
                  
