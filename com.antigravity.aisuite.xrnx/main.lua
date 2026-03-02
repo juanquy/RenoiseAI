@@ -11,12 +11,17 @@ local options = renoise.Document.create("ScriptingToolPreferences") {
 
 renoise.tool().preferences = options
 
+-- Force update stored memory in case Renoise cached the old localhost value
+options.server_url.value = "http://192.168.200.121:5000"
+options.api_key.value = "my_super_secret_proxmox_key"
+
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
 
 local function os_execute_curl_async(url, method, filepath_or_body, is_json_body, callback)
   local temp_res = os.tmpname()
+  local temp_err = os.tmpname()
   local temp_done = os.tmpname()
   os.remove(temp_done) -- ensure it doesn't accidentally exist
   
@@ -24,7 +29,7 @@ local function os_execute_curl_async(url, method, filepath_or_body, is_json_body
   local temp_req = nil
   
   if method == "POST" and not is_json_body and filepath_or_body then
-    cmd = string.format("( curl -s -X POST -H 'X-API-Key: %s' -F 'file=@%s' '%s' > '%s' ; touch '%s' ) > /dev/null 2>&1 &", options.api_key.value, filepath_or_body, url, temp_res, temp_done)
+    cmd = string.format("( curl -sS -X POST -H 'X-API-Key: %s' -F 'file=@%s' '%s' > '%s' 2> '%s' ; touch '%s' ) > /dev/null 2>&1 &", options.api_key.value, filepath_or_body, url, temp_res, temp_err, temp_done)
   elseif method == "POST" and is_json_body and filepath_or_body then
     temp_req = os.tmpname()
     local f = io.open(temp_req, "w")
@@ -32,11 +37,12 @@ local function os_execute_curl_async(url, method, filepath_or_body, is_json_body
       f:write(filepath_or_body)
       f:close()
     end
-    cmd = string.format("( curl -s -X POST -H 'X-API-Key: %s' -H 'Content-Type: application/json' -d '@%s' '%s' > '%s' ; touch '%s' ) > /dev/null 2>&1 &", options.api_key.value, temp_req, url, temp_res, temp_done)
+    cmd = string.format("( curl -sS -X POST -H 'X-API-Key: %s' -H 'Content-Type: application/json' -d '@%s' '%s' > '%s' 2> '%s' ; touch '%s' ) > /dev/null 2>&1 &", options.api_key.value, temp_req, url, temp_res, temp_err, temp_done)
   else
-    cmd = string.format("( curl -s -X %s -H 'X-API-Key: %s' '%s' > '%s' ; touch '%s' ) > /dev/null 2>&1 &", method, options.api_key.value, url, temp_res, temp_done)
+    cmd = string.format("( curl -sS -X %s -H 'X-API-Key: %s' '%s' > '%s' 2> '%s' ; touch '%s' ) > /dev/null 2>&1 &", method, options.api_key.value, url, temp_res, temp_err, temp_done)
   end
   
+  print("Executing cURL command:", cmd)
   os.execute(cmd)
   
   local function poll()
@@ -52,8 +58,21 @@ local function os_execute_curl_async(url, method, filepath_or_body, is_json_body
         res_file:close()
       end
       
+      local err_file = io.open(temp_err, "r")
+      local err_msg = ""
+      if err_file then
+        err_msg = err_file:read("*a")
+        err_file:close()
+      end
+      
+      if err_msg and err_msg ~= "" then
+        print("cURL Error:", err_msg)
+      end
+      
       os.remove(temp_done)
       os.remove(temp_res)
+      os.remove(temp_err)
+      if temp_req then os.remove(temp_req) end
       
       callback(res)
     end
@@ -308,7 +327,7 @@ local function generate_song_dialog()
         os_execute_curl_async(options.server_url.value .. "/generate_song", "POST", json_body, true, function(res)
           if res and res ~= "" then
               
-              local ok, data = pcall(json.decode, json, res)
+              local ok, data = pcall(json.decode, res)
               
               if not ok then
                  renoise.app():show_error("AI Suite Error: Server returned invalid JSON. Please check Renoise scripting terminal for details.")
