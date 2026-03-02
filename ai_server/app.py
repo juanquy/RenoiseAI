@@ -157,8 +157,9 @@ def process_stems_and_notes(filepath, base_job_id, original_filename=""):
         
         # 3. Create URLs
         outputs = {}
+        host_url = request.host_url.rstrip('/')
         if original_filename:
-            outputs["mix"] = f"http://localhost:5000/download/{original_filename}"
+            outputs["mix"] = f"{host_url}/download/{original_filename}"
             
         for stem in ["bass.wav", "other.wav", "drums.wav", "vocals.wav"]:
             src = os.path.join(stems_dir, stem)
@@ -166,7 +167,7 @@ def process_stems_and_notes(filepath, base_job_id, original_filename=""):
             dst = os.path.join(GENERATED_FOLDER, dst_name)
             if os.path.exists(src):
                 shutil.move(src, dst)
-                outputs[stem.replace(".wav", "")] = f"http://localhost:5000/download/{dst_name}"
+                outputs[stem.replace(".wav", "")] = f"{host_url}/download/{dst_name}"
         
         # Cleanup
         if os.path.exists(filepath): os.remove(filepath)
