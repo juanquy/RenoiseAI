@@ -242,10 +242,21 @@ def generate_song():
     if style != "":
         gen_prompt = f"{style}, {prompt}"
         
+    # Append structural cue
+    gen_prompt += ", clear song structure with intro, development, and a defined outro/ending"
+        
     try:
         with gpu_lock:
             musicgen_model.set_generation_params(duration=duration)
             wav = musicgen_model.generate([gen_prompt]) 
+            
+            # Apply a 4-second smooth fade-out to the end of the tensor
+            import torch
+            sr = musicgen_model.sample_rate
+            fade_samples = int(4 * sr)
+            if wav.shape[-1] > fade_samples:
+                fade_out_curve = torch.linspace(1.0, 0.0, fade_samples, device=wav.device)
+                wav[..., -fade_samples:] *= fade_out_curve 
             
             # Save generated WAV
             job_id = f"gen_{int(time.time())}"
