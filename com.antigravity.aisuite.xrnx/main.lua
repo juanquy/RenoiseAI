@@ -164,13 +164,14 @@ local function process_stems_and_notes_response(response_data, clear_tracks)
     for i = async_song.sequencer_track_count, 1, -1 do
       if async_song.sequencer_track_count > 1 then
         local track_is_empty = true
-        for _, p in ipairs(async_song.patterns) do
+        for _, pos in ipairs(async_song.sequencer.pattern_sequence) do
+          local p = async_song:pattern(pos)
           if not p:track(i).is_empty then
             track_is_empty = false
             break
           end
         end
-        if track_is_empty then
+        if track_is_empty and string.match(async_song:track(i).name, "^Track %d%d$") then
           async_song:delete_track_at(i)
         end
       end
@@ -182,17 +183,35 @@ local function process_stems_and_notes_response(response_data, clear_tracks)
   local lpb = async_song.transport.lpb
   local lines_per_sec = (bpm * lpb) / 60.0
   
-  -- Function to write notes to a track
-  local function write_notes(track, notes_array, instr_idx)
+  -- Function to write notes to a track across multiple patterns
+  local function write_notes(track_idx, notes_array, instr_idx)
     for _, note in ipairs(notes_array) do
-      local line_index = math.floor(note.start * lines_per_sec) + 1
-      if line_index <= lines_in_pattern then
-        local line = track:line(line_index)
-        local note_col = line:note_column(1)
-        local renoise_note = math.max(0, math.min(119, note.note - 12))
-        note_col.note_value = renoise_note
-        note_col.instrument_value = instr_idx
-        note_col.volume_value = math.min(127, note.velocity)
+      local absolute_line = math.floor(note.start * lines_per_sec) + 1
+      local renoise_note = math.max(0, math.min(119, note.note - 12))
+      local vol = math.min(127, note.velocity)
+      
+      local current_seq_idx = 1
+      local local_line = absolute_line
+      
+      while true do
+        if current_seq_idx > #async_song.sequencer.pattern_sequence then
+          async_song.sequencer:insert_new_pattern_at(current_seq_idx)
+        end
+        
+        local pattern_idx = async_song.sequencer:pattern(current_seq_idx)
+        local pattern = async_song:pattern(pattern_idx)
+        local pat_lines = pattern.number_of_lines
+        
+        if local_line <= pat_lines then
+          local note_col = pattern:track(track_idx).lines[local_line]:note_column(1)
+          note_col.note_value = renoise_note
+          note_col.instrument_value = instr_idx
+          note_col.volume_value = vol
+          break
+        else
+          local_line = local_line - pat_lines
+          current_seq_idx = current_seq_idx + 1
+        end
       end
     end
   end
@@ -213,7 +232,12 @@ local function process_stems_and_notes_response(response_data, clear_tracks)
     local track = async_song:insert_track_at(new_track_idx)
     track.name = "AI Mix"
     track.visible_note_columns = 1
-    local note_col = pattern:track(new_track_idx).lines[1]:note_column(1)
+    
+    local smp = instr.samples[1]
+    smp.autoseek = true
+    
+    local first_pat_idx = async_song.sequencer:pattern(1)
+    local note_col = async_song:pattern(first_pat_idx):track(new_track_idx).lines[1]:note_column(1)
     note_col.note_value = 48 -- C-4
     note_col.instrument_value = #async_song.instruments - 1
   end
@@ -244,7 +268,12 @@ local function process_stems_and_notes_response(response_data, clear_tracks)
       local track = async_song:insert_track_at(new_track_idx)
       track.name = "Stem: " .. stem_name
       track.visible_note_columns = 1
-      local note_col = pattern:track(new_track_idx).lines[1]:note_column(1)
+      
+      local smp = instr.samples[1]
+      smp.autoseek = true
+      
+      local first_pat_idx = async_song.sequencer:pattern(1)
+      local note_col = async_song:pattern(first_pat_idx):track(new_track_idx).lines[1]:note_column(1)
       note_col.note_value = 48 -- C-4
       note_col.instrument_value = #async_song.instruments - 1
     end
@@ -258,7 +287,7 @@ local function process_stems_and_notes_response(response_data, clear_tracks)
     track.visible_note_columns = 1
     local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
     instr.name = "MIDI Synth: Bass"
-    write_notes(pattern:track(new_track_idx), response_data.notes.bass, #async_song.instruments - 1)
+    write_notes(new_track_idx, response_data.notes.bass, #async_song.instruments - 1)
   end
   
   if response_data.notes and response_data.notes.melody then
@@ -268,7 +297,7 @@ local function process_stems_and_notes_response(response_data, clear_tracks)
     track.visible_note_columns = 1
     local instr = async_song:insert_instrument_at(#async_song.instruments + 1)
     instr.name = "MIDI Synth: Melody"
-    write_notes(pattern:track(new_track_idx), response_data.notes.melody, #async_song.instruments - 1)
+    write_notes(new_track_idx, response_data.notes.melody, #async_song.instruments - 1)
   end
 end
 
@@ -322,7 +351,7 @@ local function generate_song_dialog()
     vb:text { text = "Style/Genre:" },
     vb:textfield { id = "style_text", width = 300, text = "Cyberpunk Techno" },
     vb:text { text = "Topic/Prompt:" },
-    vb:textfield { id = "prompt_text", width = 450, text = "A dark rolling bassline" },
+    vb:multiline_textfield { id = "prompt_text", width = 450, height = 80, text = "A dark rolling bassline" },
     vb:text { text = "Lyrics (Requires External API Config in Server):" },
     vb:multiline_textfield { id = "lyrics_text", width = 450, height = 80, text = "" },
     vb:row {
