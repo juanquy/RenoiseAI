@@ -42,7 +42,13 @@ class RenoiseMCPClient:
                 print(f"[TCPError] {tool_name}: {data['error'].get('message', data['error'])}")
                 return None
                 
-            return data.get("result")
+            result = data.get("result", {})
+            if result.get("isError"):
+                content = result.get("content", [{"text": "Unknown error"}])
+                print(f"[ReMCP Error] {tool_name}: {content[0].get('text')}")
+                return None
+                
+            return result
             
         except requests.exceptions.RequestException as e:
             print(f"[NetworkError] Could not reach Renoise MCP on {self.url}: {e}")
@@ -83,20 +89,24 @@ class RenoiseCopilotAgent:
         print("----------------------------------\n")
         
         # Example hardcoded executions to prove the API bridge works
-        self.mcp.call_tool("transport_set_bpm", {"bpm": 130.0})
-        print("> Set Song BPM to 130")
+        print("> Testing BPM Set...")
+        # self.mcp.call_tool("transport_set_bpm", {"bpm": 130.0})
+        # print("> Set Song BPM to 130")
         
         # In a real scenario, the LLM will generate a list of dictionaries like this:
         example_ai_generation = [
-            {"tool": "pattern_set_note", "args": {"track": 1, "line": 0, "note": "C-4", "instrument": 1}},
-            {"tool": "pattern_set_note", "args": {"track": 1, "line": 4, "note": "C-4", "instrument": 1}},
-            {"tool": "pattern_set_note", "args": {"track": 1, "line": 8, "note": "C-4", "instrument": 1}},
-            {"tool": "pattern_set_note", "args": {"track": 1, "line": 12, "note": "C-4", "instrument": 1}}
+            {"tool": "pattern_set_note", "args": {"pattern": 0, "track": 1, "line": 1, "note": "C-4"}},
+            {"tool": "pattern_set_note", "args": {"pattern": 0, "track": 1, "line": 5, "note": "C-4"}},
+            {"tool": "pattern_set_note", "args": {"pattern": 0, "track": 1, "line": 9, "note": "C-4"}},
+            {"tool": "pattern_set_note", "args": {"pattern": 0, "track": 1, "line": 13, "note": "C-4"}}
         ]
         
         print("Executing AI payload against Renoise API...")
         for cmd in example_ai_generation:
-            self.mcp.call_tool(cmd["tool"], cmd["args"])
+            print(f"Sending: {cmd['args']['line']}...")
+            res = self.mcp.call_tool(cmd["tool"], cmd["args"])
+            print(f"Result: {res}")
+            time.sleep(0.1) # Prevent socket flooding
             
         print("\nAgent finished writing sequence! Initiating playback...")
         self.mcp.call_tool("transport_play")
