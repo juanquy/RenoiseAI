@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <RenoiseScriptingTool doc_version="0">
-  <ApiVersion>6.0</ApiVersion>
+  <ApiVersion>6.1</ApiVersion>
   <AutoUpgrade>true</AutoUpgrade>
   <Id>com.antigravity.aisuite</Id>
   <Version>1.0</Version>
