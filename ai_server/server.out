@@ -1,0 +1,333 @@
+Starting Renoise AI V2 decoupled architecture...
+Worker started with PID 191976
+[2026-03-09 16:17:24 -0500] [191977] [INFO] Starting gunicorn 25.1.0
+[2026-03-09 16:17:24 -0500] [191977] [INFO] Listening at: http://0.0.0.0:5000 (191977)
+[2026-03-09 16:17:24 -0500] [191977] [INFO] Using worker: sync
+[2026-03-09 16:17:24 -0500] [191977] [INFO] Control socket listening at /home/juanquy/dev/Renoise AI Plugin/ai_server/gunicorn.ctl
+[2026-03-09 16:17:24 -0500] [191979] [INFO] Booting worker with pid: 191979
+[2026-03-09 16:17:24 -0500] [191980] [INFO] Booting worker with pid: 191980
+[2026-03-09 16:17:24 -0500] [191981] [INFO] Booting worker with pid: 191981
+[2026-03-09 16:17:25 -0500] [191983] [INFO] Booting worker with pid: 191983
+/home/juanquy/miniconda3/envs/ai_env/lib/python3.10/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+/home/juanquy/miniconda3/envs/ai_env/lib/python3.10/site-packages/transformers/utils/generic.py:309: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+/home/juanquy/dev/YourMT3/amt/src/model/RoPE/RoPE.py:35: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @autocast(enabled=False)
+/home/juanquy/dev/YourMT3/amt/src/model/RoPE/RoPE.py:242: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @autocast(enabled=False)
+/home/juanquy/miniconda3/envs/ai_env/lib/python3.10/site-packages/transformers/utils/generic.py:309: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+AI Suite WORKER: Started listening for tasks...
+Janitor: Purged old file upload_full_1773087495.wav
+Janitor: Purged old file job_full_1773087496_guitar.wav
+Janitor: Purged old file job_full_1773087496_piano.wav
+Janitor: Purged old file job_full_1773087496_drums.wav
+Janitor: Purged old file job_full_1773087496_other.wav
+Janitor: Purged old file job_full_1773087496_bass.wav
+Janitor: Purged old file task_full_1773087496.json
+[2026-03-09 18:31:23 -0500] [191977] [INFO] Handling signal: hup
+[2026-03-09 18:31:23 -0500] [191977] [INFO] Hang up: Master
+[2026-03-09 18:31:23 -0500] [195873] [INFO] Booting worker with pid: 195873
+[2026-03-09 18:31:23 -0500] [195874] [INFO] Booting worker with pid: 195874
+[2026-03-09 18:31:23 -0500] [195875] [INFO] Booting worker with pid: 195875
+[2026-03-09 18:31:23 -0500] [191977] [WARNING] Worker (pid:191979) was sent SIGHUP!
+[2026-03-09 18:31:23 -0500] [191977] [WARNING] Worker (pid:191980) was sent SIGHUP!
+[2026-03-09 18:31:23 -0500] [195876] [INFO] Booting worker with pid: 195876
+[2026-03-09 18:31:23 -0500] [191977] [WARNING] Worker (pid:191981) was sent SIGHUP!
+[2026-03-09 18:31:23 -0500] [191977] [WARNING] Worker (pid:191983) was sent SIGHUP!
+127.0.0.1 - - [09/Mar/2026:18:50:23 -0500] "POST /transcribe_full HTTP/1.1" 200 54 "-" "curl/8.14.1"
+Worker picked up task: task_full_1773100223
+Running Demucs on GPU 0...
+Selected model is a bag of 1 models. You will see that many progress bars per track.
+Separated tracks will be stored in /home/juanquy/dev/Renoise AI Plugin/ai_server/generated/job_full_1773100223/htdemucs_6s
+Separating track uploads/upload_full_1773100223.wav
+  0%|                                                                     | 0.0/269.09999999999997 [00:00<?, ?seconds/s]  2%|█▎                                                          | 5.85/269.09999999999997 [00:00<00:26,  9.97seconds/s]  7%|███                                           | 17.549999999999997/269.09999999999997 [00:00<00:08, 28.28seconds/s]127.0.0.1 - - [09/Mar/2026:18:50:26 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 328 "-" "curl/8.14.1"
+ 11%|██████▍                                                    | 29.25/269.09999999999997 [00:00<00:05, 42.26seconds/s] 15%|███████                                       | 40.949999999999996/269.09999999999997 [00:01<00:04, 53.08seconds/s] 20%|███████████▌                                               | 52.65/269.09999999999997 [00:01<00:03, 61.13seconds/s] 24%|██████████████                                             | 64.35/269.09999999999997 [00:01<00:03, 67.00seconds/s] 28%|████████████████▋                                          | 76.05/269.09999999999997 [00:01<00:02, 71.34seconds/s] 33%|███████████████████▏                                       | 87.75/269.09999999999997 [00:01<00:02, 74.56seconds/s] 37%|█████████████████▎                             | 99.44999999999999/269.09999999999997 [00:01<00:02, 75.79seconds/s] 41%|███████████████████                           | 111.14999999999999/269.09999999999997 [00:01<00:02, 76.53seconds/s] 46%|██████████████████████████▍                               | 122.85/269.09999999999997 [00:02<00:01, 77.85seconds/s] 50%|███████████████████████                       | 134.54999999999998/269.09999999999997 [00:02<00:01, 78.98seconds/s] 54%|███████████████████████████████▌                          | 146.25/269.09999999999997 [00:02<00:01, 79.60seconds/s] 59%|██████████████████████████████████                        | 157.95/269.09999999999997 [00:02<00:01, 79.78seconds/s] 63%|█████████████████████████████                 | 169.64999999999998/269.09999999999997 [00:02<00:01, 80.61seconds/s] 67%|███████████████████████████████████████                   | 181.35/269.09999999999997 [00:02<00:01, 80.56seconds/s] 72%|█████████████████████████████████             | 193.04999999999998/269.09999999999997 [00:02<00:00, 81.13seconds/s] 76%|████████████████████████████████████████████▏             | 204.75/269.09999999999997 [00:03<00:00, 80.98seconds/s] 80%|██████████████████████████████████████████████▋           | 216.45/269.09999999999997 [00:03<00:00, 80.87seconds/s] 85%|███████████████████████████████████████       | 228.14999999999998/269.09999999999997 [00:03<00:00, 81.30seconds/s] 89%|███████████████████████████████████████████████████▋      | 239.85/269.09999999999997 [00:03<00:00, 81.08seconds/s] 93%|███████████████████████████████████████████   | 251.54999999999998/269.09999999999997 [00:03<00:00, 80.60seconds/s] 98%|████████████████████████████████████████████████████████▋ | 263.25/269.09999999999997 [00:03<00:00, 80.55seconds/s]127.0.0.1 - - [09/Mar/2026:18:50:29 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 328 "-" "curl/8.14.1"
+100%|██████████████████████████████████████████████| 269.09999999999997/269.09999999999997 [00:03<00:00, 69.97seconds/s]
+Running YourMT3+ on stems...
+Resuming from amt/logs/2024/mc13_256_g4_all_v7_mt3f_sqr_rms_moe_wf4_n8k2_silu_rope_rp_b36_nops/checkpoints/last.ckpt
+/home/juanquy/miniconda3/envs/ai_env/lib/python3.10/site-packages/lightning_fabric/connector.py:571: `precision=16` is supported for historical reasons but its usage is discouraged. Please set your precision to 16-mixed instead!
+Using 16bit Automatic Mixed Precision (AMP)
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+/home/juanquy/miniconda3/envs/ai_env/lib/python3.10/site-packages/pytorch_lightning/trainer/connectors/logger_connector/logger_connector.py:76: Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `pytorch_lightning` package, due to potential conflicts with other packages in the ML ecosystem. For this reason, `logger=True` will use `CSVLogger` as the default logger, unless the `tensorboard` or `tensorboardX` packages are found. Please `pip install lightning[extra]` or one of them to enable TensorBoard support by default
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+`Trainer(limit_train_batches=1.0)` was configured so 100% of the batches per epoch will be used..
+`Trainer(limit_val_batches=1.0)` was configured so 100% of the batches will be used..
+`Trainer(limit_test_batches=1.0)` was configured so 100% of the batches will be used..
+"add_melody_metric_to_singing": True
+"add_pitch_class_metric":       None
+"audio_cfg":                    {'codec': 'spec', 'hop_length': 300, 'audio_backend': 'torchaudio', 'sample_rate': 16000, 'input_frames': 32767, 'n_fft': 2048, 'n_mels': 512, 'f_min': 50.0, 'f_max': 8000.0}
+"base_lr":                      None
+"eval_drum_vocab":              None
+"eval_subtask_key":             default
+"eval_vocab":                   None
+"init_factor":                  None
+"max_steps":                    None
+"model_cfg":                    {'encoder_type': 'perceiver-tf', 'decoder_type': 'multi-t5', 'pre_encoder_type': 'conv', 'pre_encoder_type_default': {'t5': None, 'perceiver-tf': 'conv', 'conformer': None}, 'pre_decoder_type': 'mc_shared_linear', 'pre_decoder_type_default': {'t5': {'t5': None}, 'perceiver-tf': {'t5': 'linear', 'multi-t5': 'mc_shared_linear'}, 'conformer': {'t5': None}}, 'conv_out_channels': 128, 't5_basename': 'google/t5-v1_1-small', 'pretrained': False, 'use_task_conditional_encoder': True, 'use_task_conditional_decoder': True, 'd_feat': 128, 'tie_word_embeddings': True, 'vocab_size': 596, 'num_max_positions': 1034, 'encoder': {'t5': {'d_model': 512, 'num_heads': 6, 'num_layers': 8, 'dropout_rate': 0.05, 'position_encoding_type': 'sinusoidal', 'ff_widening_factor': 2, 'ff_layer_type': 't5_gmlp'}, 'perceiver-tf': {'num_latents': 26, 'd_latent': 128, 'd_model': 128, 'num_blocks': 3, 'num_local_transformers_per_block': 2, 'num_temporal_transformers_per_block': 2, 'sca_use_query_residual': True, 'dropout_rate': 0.1, 'position_encoding_type': 'rope', 'attention_to_channel': True, 'layer_norm_type': 'layer_norm', 'ff_layer_type': 'moe', 'ff_widening_factor': 4, 'moe_num_experts': 8, 'moe_topk': 2, 'hidden_act': 'silu', 'rotary_type_sca': 'pixel', 'rotary_type_latent': 'pixel', 'rotary_type_temporal': 'lang', 'rotary_apply_to_keys': False, 'rotary_partial_pe': False, 'rope_partial_pe': True, 'num_max_positions': 110, 'vocab_size': 596}, 'conformer': {'d_model': 512, 'intermediate_size': 512, 'num_heads': 8, 'num_layers': 8, 'dropout_rate': 0.1, 'layerdrop': 0.1, 'position_encoding_type': 'rotary', 'conv_dim': (512, 512, 512, 512, 512, 512, 512), 'conv_stride': (5, 2, 2, 2, 2, 2, 2), 'conv_kernel': (10, 3, 3, 3, 3, 3, 3), 'conv_depthwise_kernel_size': 31}}, 'decoder': {'t5': {'d_model': 512, 'num_heads': 6, 'num_layers': 8, 'dropout_rate': 0.05, 'position_encoding_type': 'sinusoidal', 'ff_widening_factor': 2, 'ff_layer_type': 't5_gmlp'}, 'multi-t5': {'d_model': 512, 'num_heads': 6, 'num_layers': 8, 'dropout_rate': 0.05, 'position_encoding_type': 'sinusoidal', 'ff_widening_factor': 2, 'ff_layer_type': 't5_gmlp', 'num_channels': 13, 'num_max_positions': 1034, 'vocab_size': 596}}, 'feat_length': 110, 'event_length': 1024, 'init_factor': 1.0}
+"onset_tolerance":              0.05
+"optimizer":                    None
+"optimizer_name":               adamwscale
+"pretrained":                   False
+"scheduler_name":               cosine
+"shared_cfg":                   {'PATH': {'data_home': '../../data'}, 'BSZ': {'train_sub': 12, 'train_local': 24, 'validation': 64, 'test': 128}, 'AUGMENTATION': {'train_random_amp_range': [0.8, 1.1], 'train_stem_iaug_prob': 0.7, 'train_stem_xaug_policy': {'max_k': 3, 'tau': 0.3, 'alpha': 1.0, 'max_subunit_stems': 12, 'p_include_singing': None, 'no_instr_overlap': True, 'no_drum_overlap': True, 'uhat_intra_stem_augment': True}, 'train_pitch_shift_range': [-2, 2]}, 'DATAIO': {'num_workers': 4, 'prefetch_factor': 2, 'pin_memory': True, 'persistent_workers': False}, 'CHECKPOINT': {'save_top_k': 4, 'monitor': 'validation/macro_onset_f', 'mode': 'max', 'save_last': True, 'filename': '{epoch}-{step}'}, 'TRAINER': {'limit_train_batches': 1.0, 'limit_val_batches': 1.0, 'limit_test_batches': 1.0, 'gradient_clip_val': 1.0, 'accumulate_grad_batches': 1, 'check_val_every_n_epoch': 1, 'num_sanity_val_steps': 0}, 'WANDB': {'save_dir': 'amt/logs', 'resume': 'allow', 'anonymous': 'allow', 'mode': 'disabled'}, 'LR_SCHEDULE': {'warmup_steps': 1000, 'total_steps': 100000, 'final_cosine': 1e-05}, 'TOKENIZER': {'max_shift_steps': 206, 'shift_step_ms': 10}}
+"task_manager":                 <utils.task_manager.TaskManager object at 0x7ddbe32dfaf0>
+"test_optimal_octave_shift":    False
+"test_pitch_shift_layer":       None
+"weight_decay":                 0.0
+"write_output_dir":             amt/logs/2024/mc13_256_g4_all_v7_mt3f_sqr_rms_moe_wf4_n8k2_silu_rope_rp_b36_nops
+"write_output_vocab":           None
+127.0.0.1 - - [09/Mar/2026:18:50:32 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+YourMT3+ loaded on cuda:0
+127.0.0.1 - - [09/Mar/2026:18:50:35 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:38 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:41 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:44 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:47 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:50 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:53 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:56 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:50:59 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:02 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:05 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:08 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:11 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:14 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:17 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:20 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:23 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:26 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:29 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:32 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:35 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:38 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:41 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:44 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:47 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:50 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:53 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:56 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:51:59 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:02 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:05 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:08 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:11 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:14 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:17 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:20 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:23 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:26 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:29 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:32 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:35 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:38 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:41 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:44 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:47 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:50 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:53 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:56 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:52:59 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:02 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:05 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:08 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:11 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:14 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:17 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:20 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:23 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:26 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:29 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:32 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:35 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:38 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:41 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:44 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:47 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:50 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:53 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:56 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:53:59 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:02 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:05 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:08 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:11 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:14 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:17 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:20 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:23 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:26 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:29 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:32 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:35 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:38 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:41 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:44 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:47 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:50 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:53 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:56 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:54:59 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:02 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:05 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:08 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:11 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:14 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:17 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:20 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:23 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:18:55:26 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+Verification: job_full_1773100223 Vocals identified as SYNTH (0.0% human confidence). Deleting audio.
+AI Suite WORKER: Job job_full_1773100223 done. VRAM/RAM Scrubbed.
+127.0.0.1 - - [09/Mar/2026:18:55:29 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 1229793 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:04:02 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 1229793 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:04:15 -0500] "GET /task_status/task_full_1773100223 HTTP/1.1" 200 1229793 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:39:53 -0500] "POST /transcribe_full HTTP/1.1" 200 54 "-" "curl/8.14.1"
+Worker picked up task: task_full_1773103193
+Running Demucs on GPU 0...
+127.0.0.1 - - [09/Mar/2026:19:39:57 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 328 "-" "curl/8.14.1"
+Selected model is a bag of 1 models. You will see that many progress bars per track.
+Separated tracks will be stored in /home/juanquy/dev/Renoise AI Plugin/ai_server/generated/job_full_1773103193/htdemucs_6s
+Separating track uploads/upload_full_1773103193.wav
+  0%|                                                                     | 0.0/269.09999999999997 [00:00<?, ?seconds/s]  2%|█▎                                                          | 5.85/269.09999999999997 [00:00<00:18, 13.95seconds/s]  7%|███                                           | 17.549999999999997/269.09999999999997 [00:00<00:07, 35.44seconds/s] 11%|██████▍                                                    | 29.25/269.09999999999997 [00:00<00:04, 49.68seconds/s] 15%|███████                                       | 40.949999999999996/269.09999999999997 [00:00<00:03, 59.14seconds/s] 20%|███████████▌                                               | 52.65/269.09999999999997 [00:01<00:03, 65.45seconds/s] 24%|██████████████                                             | 64.35/269.09999999999997 [00:01<00:02, 69.52seconds/s] 28%|████████████████▋                                          | 76.05/269.09999999999997 [00:01<00:02, 72.66seconds/s] 33%|███████████████████▏                                       | 87.75/269.09999999999997 [00:01<00:02, 74.68seconds/s] 37%|█████████████████▎                             | 99.44999999999999/269.09999999999997 [00:01<00:02, 76.04seconds/s] 41%|███████████████████                           | 111.14999999999999/269.09999999999997 [00:01<00:02, 77.38seconds/s] 46%|██████████████████████████▍                               | 122.85/269.09999999999997 [00:01<00:01, 77.97seconds/s] 50%|███████████████████████                       | 134.54999999999998/269.09999999999997 [00:02<00:01, 78.18seconds/s] 54%|███████████████████████████████▌                          | 146.25/269.09999999999997 [00:02<00:01, 78.49seconds/s] 59%|██████████████████████████████████                        | 157.95/269.09999999999997 [00:02<00:01, 78.82seconds/s] 63%|█████████████████████████████                 | 169.64999999999998/269.09999999999997 [00:02<00:01, 79.07seconds/s] 67%|███████████████████████████████████████                   | 181.35/269.09999999999997 [00:02<00:01, 79.23seconds/s] 72%|█████████████████████████████████             | 193.04999999999998/269.09999999999997 [00:02<00:00, 79.14seconds/s]127.0.0.1 - - [09/Mar/2026:19:40:00 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 328 "-" "curl/8.14.1"
+ 76%|████████████████████████████████████████████▏             | 204.75/269.09999999999997 [00:02<00:00, 79.11seconds/s] 80%|██████████████████████████████████████████████▋           | 216.45/269.09999999999997 [00:03<00:00, 79.26seconds/s] 85%|███████████████████████████████████████       | 228.14999999999998/269.09999999999997 [00:03<00:00, 79.35seconds/s] 89%|███████████████████████████████████████████████████▋      | 239.85/269.09999999999997 [00:03<00:00, 79.33seconds/s] 93%|███████████████████████████████████████████   | 251.54999999999998/269.09999999999997 [00:03<00:00, 79.58seconds/s] 98%|████████████████████████████████████████████████████████▋ | 263.25/269.09999999999997 [00:03<00:00, 79.33seconds/s]100%|██████████████████████████████████████████████| 269.09999999999997/269.09999999999997 [00:03<00:00, 72.05seconds/s]
+127.0.0.1 - - [09/Mar/2026:19:40:03 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 328 "-" "curl/8.14.1"
+Running YourMT3+ on stems...
+127.0.0.1 - - [09/Mar/2026:19:40:06 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:09 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:12 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:15 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:18 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:21 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:24 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:27 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:30 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:33 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:36 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:38 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 299 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:41 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:44 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:47 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:50 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:53 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:56 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:40:59 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:02 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:05 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:08 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:11 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:14 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:17 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:20 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:23 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:26 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:29 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:32 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:35 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:38 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:41 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:44 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:47 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:50 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:53 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:56 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:41:59 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:02 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:05 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:08 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:11 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:14 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:17 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:20 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:23 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:26 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:29 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:32 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:35 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:38 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:41 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:44 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:47 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:50 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:53 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:56 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:42:59 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:02 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:05 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:08 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:11 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:14 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:17 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:20 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:23 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:26 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:29 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:32 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:35 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:38 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:41 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:44 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:47 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:50 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:53 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:56 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:43:59 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:02 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:05 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:08 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:11 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:14 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:17 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:20 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:23 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:26 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:29 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:32 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:35 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:38 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:41 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:44 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:47 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:50 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:53 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:56 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:44:59 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:02 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:05 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:08 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 300 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:11 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:14 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:17 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:20 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:23 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:26 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:29 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+127.0.0.1 - - [09/Mar/2026:19:45:32 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 301 "-" "curl/8.14.1"
+Verification: job_full_1773103193 Vocals identified as SYNTH (0.0% human confidence). Deleting audio.
+AI Suite WORKER: Job job_full_1773103193 done. VRAM/RAM Scrubbed.
+127.0.0.1 - - [09/Mar/2026:19:45:35 -0500] "GET /task_status/task_full_1773103193 HTTP/1.1" 200 1310994 "-" "curl/8.14.1"
+Janitor: Purged old file upload_full_1773100223.wav
+Janitor: Purged old file job_full_1773100223_other.wav
+Janitor: Purged old file job_full_1773100223_drums.wav
+Janitor: Purged old file job_full_1773100223_piano.wav
+Janitor: Purged old file job_full_1773100223_bass.wav
+Janitor: Purged old file job_full_1773100223_guitar.wav
+Janitor: Purged old file task_full_1773100223.json
+Janitor: Purged old file upload_full_1773103193.wav
+Janitor: Purged old file job_full_1773103193_other.wav
+Janitor: Purged old file job_full_1773103193_drums.wav
+Janitor: Purged old file job_full_1773103193_piano.wav
+Janitor: Purged old file job_full_1773103193_guitar.wav
+Janitor: Purged old file job_full_1773103193_bass.wav
+Janitor: Purged old file task_full_1773103193.json
+[2026-03-09 21:05:34 -0500] [195874] [INFO] Worker exiting (pid: 195874)
+[2026-03-09 21:05:34 -0500] [195873] [INFO] Worker exiting (pid: 195873)
+[2026-03-09 21:05:34 -0500] [195875] [INFO] Worker exiting (pid: 195875)
+[2026-03-09 21:05:34 -0500] [195876] [INFO] Worker exiting (pid: 195876)
+[2026-03-09 21:05:34 -0500] [191977] [INFO] Handling signal: term
+[2026-03-09 21:05:34 -0500] [191977] [INFO] Worker (pid:195873) was sent SIGTERM!
+[2026-03-09 21:05:34 -0500] [191977] [INFO] Worker (pid:195874) was sent SIGTERM!
+[2026-03-09 21:05:34 -0500] [191977] [INFO] Worker (pid:195875) was sent SIGTERM!
+[2026-03-09 21:05:34 -0500] [191977] [INFO] Worker (pid:195876) was sent SIGTERM!
+[2026-03-09 21:05:34 -0500] [191977] [INFO] Shutting down: Master

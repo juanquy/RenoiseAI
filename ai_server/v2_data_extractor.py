@@ -56,7 +56,17 @@ def parse_renoise_pattern(xrns_path):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python v2_data_extractor.py <song.xrns>")
+        print("Usage: python v2_data_extractor.py <song.xrns> or <directory>")
         sys.exit(1)
         
-    parse_renoise_pattern(sys.argv[1])
+    path = sys.argv[1]
+    if os.path.isfile(path):
+        parse_renoise_pattern(path)
+    else:
+        # Batch mode
+        import glob
+        files = glob.glob(os.path.join(path, "**/*.xrns"), recursive=True)
+        print(f"Found {len(files)} files in {path}")
+        for i, f in enumerate(files[:10]): # Preview first 10
+            print(f"\n--- File {i+1}: {os.path.basename(f)} ---")
+            parse_renoise_pattern(f)

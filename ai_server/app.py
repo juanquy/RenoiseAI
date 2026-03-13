@@ -67,37 +67,7 @@ def status():
         "auth_required": True
     })
 
-@app.route('/transcribe_full', methods=['POST'])
-@require_api_key
-def transcribe_full():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-    
-    safe_filename = "upload_full_" + str(int(time.time())) + ".wav"
-    filepath = os.path.join(UPLOAD_FOLDER, safe_filename)
-    file.save(filepath)
-    
-    job_id = f"job_full_{int(time.time())}"
-    task_id = f"task_full_{int(time.time())}"
-    
-    task_data = {
-        "status": "pending",
-        "message": "Queued for upload rendering and full demucs extraction...",
-        "stems": {},
-        "notes": {},
-        "error": "",
-        "type": "transcribe_full",
-        "filepath": filepath,
-        "job_id": job_id,
-        "task_id": task_id,
-        "host_url": request.host_url.rstrip('/')
-    }
-    save_new_task(task_id, task_data)
-    
-    return jsonify({"task_id": task_id, "status": "pending"})
+
 
 @app.route('/transcribe', methods=['POST'])
 @require_api_key
@@ -123,6 +93,7 @@ def transcribe():
         "error": "",
         "type": "transcribe",
         "filepath": filepath,
+        "original_filename": file.filename,
         "job_id": job_id,
         "task_id": task_id,
         "host_url": request.host_url.rstrip('/')
@@ -131,33 +102,30 @@ def transcribe():
     
     return jsonify({"task_id": task_id, "status": "pending"})
 
-@app.route('/generate_song', methods=['POST'])
+
+
+@app.route('/compose_native_midi', methods=['POST'])
 @require_api_key
-def generate_song():
+def compose_native_midi():
     data = request.json
+    
+    # Extract prompt from Renoise's JSON format (messages array)
     prompt = data.get('prompt', '')
-    lyrics = data.get('lyrics', '')
-    style = data.get('style', '')
-    duration = int(data.get('duration', 8))
+    if not prompt and 'messages' in data:
+        for msg in reversed(data['messages']):
+            if msg.get('role') == 'user':
+                prompt = msg.get('content', '')
+                break
     
-    duration = min(duration, 120) 
-    
-    gen_prompt = prompt
-    if style != "":
-        gen_prompt = f"{style}, {prompt}"
-        
-    gen_prompt += ", clear song structure with intro, development, and a defined outro/ending"
-    
-    task_id = f"task_{int(time.time())}"
+    task_id = f"task_midi_{int(time.time())}"
     task_data = {
         "status": "pending",
-        "message": "Queued for generator...",
+        "message": "Queued for Native MIDI Specialized LLM...",
         "stems": {},
         "notes": {},
         "error": "",
-        "type": "generate_song",
-        "gen_prompt": gen_prompt,
-        "duration": duration,
+        "type": "compose_native_midi",
+        "prompt": prompt,
         "task_id": task_id,
         "host_url": request.host_url.rstrip('/')
     }

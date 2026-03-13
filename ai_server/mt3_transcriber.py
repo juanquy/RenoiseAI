@@ -145,7 +145,7 @@ def load_mt3_model(device_str="cuda:0"):
     return _model
 
 
-def transcribe_audio_to_notes(filepath):
+def transcribe_audio_to_notes(filepath, flat_name=None):
     """
     Transcribe an audio file to structured note data compatible with Renoise AI worker.
     
@@ -168,6 +168,7 @@ def transcribe_audio_to_notes(filepath):
         if len(audio_np.shape) == 1:
             audio_np = audio_np.reshape(-1, 1)
         audio = torch.from_numpy(audio_np).transpose(0, 1) # -> [channels, samples]
+        del audio_np # Clear raw numpy immediately
         
         audio = torch.mean(audio, dim=0).unsqueeze(0) # -> mono [1, samples]
         
@@ -175,7 +176,12 @@ def transcribe_audio_to_notes(filepath):
             audio = torchaudio.functional.resample(audio, sr, _model.audio_cfg['sample_rate'])
             
         audio_segments = slice_padded_array(audio, _model.audio_cfg['input_frames'], _model.audio_cfg['input_frames'])
-        audio_segments = torch.from_numpy(audio_segments.astype('float32')).to(_device).unsqueeze(1)
+        # Keep segments on CPU! Only move the active batch to GPU in the loop.
+        audio_segments = torch.from_numpy(audio_segments.astype('float32')).unsqueeze(1)
+        
+        import gc
+        del audio
+        gc.collect()
 
         # Calculate the number of items and handle slicing the full track
         import math
@@ -225,39 +231,36 @@ def transcribe_audio_to_notes(filepath):
             return {}
 
         # Parse the MIDI file into per-instrument note dicts
-        return parse_midi_to_notes(midi_path)
+        return parse_midi_to_notes(midi_path, flat_name=flat_name)
     finally:
         os.chdir(original_cwd)
 
 
-def parse_midi_to_notes(midi_path):
+def parse_midi_to_notes(midi_path, flat_name=None):
     """
-    Parse a multi-track MIDI file into per-instrument note data.
-    
-    Returns: dict mapping instrument_category -> list of {start, duration, note, velocity}
+    Parse a multi-track MIDI file into note data.
+    If flat_name is provided, flattens all notes into a single track (useful for single stem imports).
+    Otherwise categorizes them based on MIDI program logic.
     """
     import math
+    import mido
     mid = mido.MidiFile(midi_path)
     
     # MIDI program -> instrument category mapping for Renoise tracks
     INSTRUMENT_MAP = {
-        # Bass instruments (program 32-39)
         range(32, 40): "bass",
-        # Piano/Keys (program 0-7)
         range(0, 8): "piano",
-        # Guitar (program 24-31)
         range(24, 32): "guitar",
-        # Strings/Ensemble (program 40-55)
-        range(40, 56): "other",
-        # Brass/Wind (program 56-79)
+        range(40, 52): "other",
+        range(52, 55): "vocals_midi",
         range(56, 80): "other",
-        # Synth Lead/Pad (program 80-103)
-        range(80, 104): "other",
-        # Drums (channel 9/10)
+        range(80, 104): "lead_synth",
         "drums": "drums",
     }
     
     def get_category(program, channel):
+        if flat_name:
+            return flat_name
         if channel == 9:  # MIDI drum channel
             return "drums"
         for prog_range, category in INSTRUMENT_MAP.items():
@@ -267,13 +270,10 @@ def parse_midi_to_notes(midi_path):
     
     result = {}
     
-    # Track current program per channel (defaults to 0 / Grand Piano)
     channel_programs = {i: 0 for i in range(16)}
-    active_notes = {}  # (channel, note) -> (start_time, velocity)
+    active_notes = {}
     time_sec = 0.0
     
-    # Iterate through all messages chronologically across all tracks.
-    # mido's default iterator provides msg.time in seconds!
     for msg in mid:
         time_sec += msg.time
         
@@ -288,7 +288,6 @@ def parse_midi_to_notes(midi_path):
                 start_time, velocity = active_notes.pop(key)
                 duration = time_sec - start_time
                 
-                # Enforce minimum duration for Renoise notes
                 if duration < 0.01:
                     duration = 0.05
                 
@@ -298,7 +297,6 @@ def parse_midi_to_notes(midi_path):
                 if category not in result:
                     result[category] = []
                     
-                # Sanitize values
                 start_val = float(start_time)
                 dur_val = float(duration)
                 if math.isnan(start_val) or math.isinf(start_val):

@@ -6,3 +6,9 @@ torch
 torchaudio
 audiocraft
 demucs
+transformers
+accelerate
+peft
+mido
+bitsandbytes
+sentencepiece
