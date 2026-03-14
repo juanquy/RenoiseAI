@@ -63,7 +63,11 @@ def extract_xrns_to_tokens(xrns_path):
                 inst_str = ", ".join(inst_names[:5]) if inst_names else "synthesizers"
                 
                 caption = f"A Renoise tracker song titled '{name}' playing at {bpm} BPM with LPB {lpb}. Features instruments like {inst_str}."
-                system_prompt = f"You are a world-class composer. Please compose some music according to the following description: {caption} "
+                system_prompt = (
+                    "You are a professional music producer. Follow the 'Rule of Three': only 3 primary elements at once. "
+                    "Use professional song structures (Intro, Verse, Chorus, Bridge). "
+                    "Description: " + caption
+                )
                 
                 tokens.append(system_prompt)
                 tokens.append("PIECE_START")
@@ -71,32 +75,51 @@ def extract_xrns_to_tokens(xrns_path):
                 patterns = root.find('.//Patterns')
                 if patterns is None: return ""
                 
-                # We'll process the first 8 patterns for more context
-                for pat_idx, pattern in enumerate(patterns.findall('Pattern')[:8]):
-                    tracks = pattern.find('Tracks')
-                    if tracks is None: continue
-                    for trk_idx, track in enumerate(tracks.findall('PatternTrack')):
-                        lines = track.find('Lines')
-                        if lines is None: continue
-                        for line in lines.findall('Line'):
-                            # Simple time mapping: 1 line = 120 MIDI ticks
-                            time_step = 120 
-                            
-                            for nc in line.findall('.//NoteColumn'):
-                                note = nc.findtext('Note')
-                                pitch = renoise_to_midi_pitch(note)
-                                if pitch:
-                                    tokens.append(f"NOTE_ON {trk_idx} {pitch}")
-                                    tokens.append(f"TIME {time_step}")
-                                elif note == 'OFF':
-                                    tokens.append(f"NOTE_OFF {trk_idx} 60")
-                
-        # If no notes were matched
-        if len(tokens) <= 2:
+                # Process patterns chronologically
+                for pat_idx, pattern in enumerate(patterns.findall('Pattern')[:2]): # 2 patterns for context
+                    num_lines = int(pattern.findtext('NumberOfLines', default='64'))
+                    
+                    tracks_node = pattern.find('Tracks')
+                    if tracks_node is None: continue
+                    
+                    # Limit to 4 tracks (Rule of Three + 1 extra) to keep table narrow/stable
+                    p_tracks = tracks_node.findall('PatternTrack')[:4]
+                    headers = ["Line"]
+                    for trk_idx, track in enumerate(p_tracks):
+                        name = track.findtext('Name', default=f'Track {trk_idx}')[:10].strip()
+                        headers.append(name if name and name != f'Track {trk_idx}' else f"T{trk_idx}")
+                    
+                    # Create Markdown Table
+                    table = []
+                    table.append("| " + " | ".join(headers) + " |")
+                    table.append("| " + " | ".join(["---"] * len(headers)) + " |")
+                    
+                    for l_idx in range(num_lines):
+                        row = [f"{l_idx:02d}"]
+                        has_note = False
+                        for track in p_tracks:
+                            line_node = track.find(f'Lines/Line[@index="{l_idx}"]')
+                            note = "---"
+                            if line_node is not None:
+                                nc = line_node.find('.//NoteColumn')
+                                if nc is not None:
+                                    note = nc.findtext('Note', default='---')
+                                    if note != "---": has_note = True
+                            row.append(note)
+                        
+                        if has_note:
+                            table.append("| " + " | ".join(row) + " |")
+                    
+                    if len(table) > 2:
+                        tokens.append(f"\n### SECTION {pat_idx} ###\n" + "\n".join(table))
+        
+        if len(tokens) <= 3:
             return ""
             
-        return " ".join(tokens) + " PIECE_END"
-    except Exception:
+        full_text = "\n".join(tokens)
+        return full_text
+    except Exception as e:
+        print(f"Error parsing {xrns_path}: {e}")
         return ""
 
 def prepare_dataset():
@@ -126,7 +149,7 @@ def train():
     tokenizer.pad_token = tokenizer.eos_token
     
     def tokenize_function(examples):
-        return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=512)
+        return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=1500) # Balanced context
 
     tokenized_datasets = dataset.map(tokenize_function, batched=True, remove_columns=["text"])
 
@@ -147,9 +170,9 @@ def train():
     model = prepare_model_for_kbit_training(model)
 
     config = LoraConfig(
-        r=16, 
-        lora_alpha=32, 
-        target_modules=["q_proj", "v_proj"], 
+        r=32, # Higher rank for better memorization of symbols
+        lora_alpha=64, 
+        target_modules=["q_proj", "v_proj", "k_proj", "o_proj"], 
         lora_dropout=0.05, 
         bias="none", 
         task_type="CAUSAL_LM"
@@ -158,14 +181,16 @@ def train():
 
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=4,
+        per_device_train_batch_size=1, 
+        gradient_accumulation_steps=16, 
         learning_rate=2e-4,
-        num_train_epochs=3,
+        num_train_epochs=5, # More epochs to stabilize symbols
         logging_steps=10,
         save_strategy="epoch",
         push_to_hub=False,
-        report_to="none"
+        report_to="none",
+        gradient_checkpointing=True,
+        optim="paged_adamw_8bit"
     )
 
     trainer = Trainer(

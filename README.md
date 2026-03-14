@@ -24,6 +24,17 @@ The **Renoise AI Suite** is a next-generation integration that bridges the preci
 
 ---
 
+## ⌨️ Hardware Integration: Push 1 for Renoise
+
+A world-class hardware companion for your tracker workflow. The **Push 1 Module** turns your Ableton hardware into a native Renoise interface.
+
+- **Native Isomorphic Play**: 8x8 grid mapped to custom scales (Major, Minor, Locrian, etc.).
+- **Step Sequencer Engine**: A dedicated 8v8 step sequencer for drum patterns.
+- **4-Line SysEx LCD**: Full hardware display synchronization for BPM, Volume, and Song naming.
+- **Zero-Latency Response**: Direct MIDI-to-API mapping for an instrument-like feel.
+
+---
+
 ## 🛠️ How to Deploy (Full Installation)
 
 This setup assumes you are using a **Linux workstation** (Ubuntu/Debian recommended) with an **NVIDIA GPU**.
@@ -156,9 +167,11 @@ If you already have high-quality separated stems (e.g., from Suno AI or professi
 ## 📂 Project Structure
 
 - `com.antigravity.aisuite.xrnx/`: The Renoise Tool source code.
+- `push-plugin.xrnx/`: The Push 1 Hardware Integration source code.
 - `ai_server/`: The Python backend (Flask API + Background Worker).
 - `docs/`: Technical documentation and API references.
-- `RenoiseAI_V2_Fixed.xrnx`: Ready-to-install Renoise package.
+- `Push1_for_Renoise.xrnx`: Ready-to-install Push 1 package.
+- `RenoiseAI_V2_Fixed.xrnx`: Ready-to-install AI Suite package.
 
 ---
 

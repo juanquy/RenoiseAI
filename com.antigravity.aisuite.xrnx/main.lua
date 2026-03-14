@@ -263,6 +263,14 @@ local function execute_command(cmd)
       song.sequencer:insert_new_pattern_at(i + 1)
     end
 
+  elseif cmd.type == "set_pattern_length" then
+    -- cmd.index = 0-based sequencer slot, cmd.lines = number of lines
+    local seq_idx = (cmd.index or 0) + 1
+    if seq_idx <= #song.sequencer.pattern_sequence then
+      local pat_idx = song.sequencer:pattern(seq_idx)
+      song:pattern(pat_idx).number_of_lines = math.max(1, cmd.lines or 32)
+    end
+
   elseif cmd.type == "fill_sequence" then
     local src_idx = (cmd.source or 0) + 1
     local dest_idx = (cmd.dest or 0) + 1
@@ -280,63 +288,48 @@ local function execute_command(cmd)
     end
 
   elseif cmd.type == "set_note" or cmd.type == "note_off" then
-    local absolute_line = cmd.line + 1
     local track_idx = cmd.track + 1
     local target_track = song:track(track_idx)
-    
+
     if not target_track then return end
     target_track.visible_note_columns = 1
-    
-    local current_seq_idx = 1
-    local local_line = absolute_line
-    
-    while true do
-      if current_seq_idx > #song.sequencer.pattern_sequence then
-        song.sequencer:insert_new_pattern_at(current_seq_idx)
-      end
-      
-      local pattern_idx = song.sequencer:pattern(current_seq_idx)
+
+    -- NEW: explicit pattern + local line addressing.
+    -- cmd.pattern  = 0-based sequencer slot index (which section)
+    -- cmd.line     = 0-based line WITHIN that pattern
+    local seq_idx = (cmd.pattern or 0) + 1
+    local local_line = cmd.line + 1  -- convert to 1-based
+
+    if seq_idx <= #song.sequencer.pattern_sequence then
+      local pattern_idx = song.sequencer:pattern(seq_idx)
       local pattern = song:pattern(pattern_idx)
-      local pat_lines = pattern.number_of_lines
-      
-      if local_line <= pat_lines then
+
+      if local_line <= pattern.number_of_lines then
         local note_col = pattern:track(track_idx).lines[local_line]:note_column(1)
-        
+
         if cmd.type == "note_off" then
           note_col.note_value = 120 -- OFF
         else
-          -- EXTREME NOTE SANITIZATION
+          -- NOTE SANITIZATION
           local raw_note = cmd.note:upper()
-          
-          -- Remove invalid flats or inject missing hyphens for 3-character format
           raw_note = raw_note:gsub("BB", "A")
           raw_note = raw_note:gsub("EB", "D")
           raw_note = raw_note:gsub("AB", "G")
           raw_note = raw_note:gsub("DB", "C")
           raw_note = raw_note:gsub("GB", "F")
-          
-          -- Ensure hyphen exists if no sharp
           if #raw_note == 2 and not raw_note:find("#") then
             raw_note = raw_note:sub(1,1) .. "-" .. raw_note:sub(2,2)
           end
-          
-          -- Last resort fallback if length is wrong
           if #raw_note > 3 and raw_note:find("#%-") then
             raw_note = raw_note:gsub("%-", "")
           end
-          
           if #raw_note > 3 then raw_note = raw_note:sub(1,3) end
-          
+
           note_col.note_string = raw_note
           note_col.volume_string = cmd.volume or "7F"
-          -- Ensure valid instrument assignment (Renoise expects 0-indexed values in Lua mapping, UI displays it +1)
           local safe_inst = cmd.instrument or cmd.track
           note_col.instrument_value = math.max(0, math.min(254, safe_inst))
         end
-        break
-      else
-        local_line = local_line - pat_lines
-        current_seq_idx = current_seq_idx + 1
       end
     end
   end

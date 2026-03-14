@@ -25,6 +25,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(GENERATED_FOLDER, exist_ok=True)
 os.makedirs(TASKS_FOLDER, exist_ok=True)
 
+midi_composer_model = None
+
 
 def get_midi_composer():
     global midi_composer_model
