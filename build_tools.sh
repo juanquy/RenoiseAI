@@ -4,6 +4,9 @@
 
 echo "📦 Packaging Renoise Tools..."
 
+# Clean old packages (files only)
+find . -maxdepth 1 -name "*.xrnx" -type f -delete
+
 # 1. AI Suite
 echo "  - Building RenoiseAI_V2_Fixed.xrnx..."
 cd "com.antigravity.aisuite.xrnx" && zip -qr ../RenoiseAI_V2_Fixed.xrnx ./* && cd ..
