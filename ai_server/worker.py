@@ -15,6 +15,8 @@ sys.modules['xformers'] = MagicMock()
 sys.modules['xformers.ops'] = MagicMock()
 
 
+from conductor import AIConductor
+
 from midi_composer import MIDIComposer
 
 UPLOAD_FOLDER = 'uploads'
@@ -26,18 +28,19 @@ os.makedirs(GENERATED_FOLDER, exist_ok=True)
 os.makedirs(TASKS_FOLDER, exist_ok=True)
 
 midi_composer_model = None
+ai_conductor = AIConductor()
 
 
 def get_midi_composer():
     global midi_composer_model
     if midi_composer_model is None:
 
-        print("AI Suite WORKER: Loading Llama 3.2 MIDI Composer (Specialized Musical Specialist)...")
+        print("AI Suite WORKER: Loading Specialized Neural MIDI Engine (Llama 3.2-1B)...")
         try:
             midi_composer_model = MIDIComposer()
-            print("AI Suite WORKER: MIDI Composer Loaded Successfully.")
+            print("AI Suite WORKER: Neural Engine Ready.")
         except Exception as e:
-            print(f"AI Suite WORKER: Error loading MIDI Composer: {e}")
+            print(f"AI Suite WORKER: Error loading MIDI engine: {e}")
     return midi_composer_model
 
 
@@ -47,10 +50,21 @@ def unload_midi_composer():
     global midi_composer_model
     if midi_composer_model is not None:
         print("AI Suite WORKER: Flushing MIDI Composer from VRAM...")
+        midi_composer_model.unload() # Use the composer's own unload
         del midi_composer_model
         midi_composer_model = None
         gc.collect()
         torch.cuda.empty_cache()
+
+def unload_ollama_models():
+    """Force Ollama to release VRAM by stopping active models."""
+    try:
+        print("AI Suite WORKER: Stopping Ollama models to free VRAM...")
+        subprocess.run(["ollama", "stop", "gemma3:12b"], capture_output=True)
+        # Also stop the legacy Llama if it was used
+        subprocess.run(["ollama", "stop", "llama3.1"], capture_output=True)
+    except Exception as e:
+        print(f"AI Suite WORKER: Warning: Failed to stop Ollama models: {e}")
 
 def update_task(task_id, data):
     task_file = os.path.join(TASKS_FOLDER, f"{task_id}.json")
@@ -120,25 +134,71 @@ def run_transcribe_bg(task):
 def run_compose_native_midi_bg(task):
     task_id = task["task_id"]
     try:
-        update_task(task_id, {"message": "Initializing Specialized MIDI LLM..."})
-        composer = get_midi_composer()
+        update_task(task_id, {"message": "Conductor Planning: Analyzing musical structure..."})
+        conductor = ai_conductor
         
         prompt = task["prompt"]
-        update_task(task_id, {"message": f"Composing native sequence for: {prompt[:30]}..."})
+        song_length = task.get("song_length", 16)
         
-        # Generate tokens
-        raw_sequence = composer.generate_midi_sequence(prompt)
+        # Step 1: Conductor Planning (Using Gemma-3 via Ollama)
+        plan = conductor.orchestrate(prompt, song_length=song_length)
         
-        # Parse tokens into Renoise JSON commands
-        # We assume default 135 BPM and 4 LPB for now, can be expanded to get from task
-        commands = composer.tokens_to_renoise_json(raw_sequence)
+        # Step 2: Swap VRAM (Unload Ollama, Load Transformers)
+        unload_ollama_models()
         
+        update_task(task_id, {"message": "Neural Dreaming: Loading 8B Music Brain..."})
+        composer = get_midi_composer() # This now loads Music-Llama-Medium in 4-bit
+        
+        # Step 3: Neural MIDI Generation
+        update_task(task_id, {"message": "Neural Dreaming: Generating high-fidelity notes with MusicLlama..."})
+        raw_output = composer.generate_midi_sequence(prompt)
+        commands = composer.tokens_to_renoise_json(raw_output, song_length=song_length)
+        
+        # Step 4: Cleanup (Unload MusicLlama to free VRAM for next request's Conductor)
+        unload_midi_composer()
+        
+        # 1. Structure first: BPM, Arrangement, Tracks
+        # 2. Performance: Notes, Offs
+        # 3. Polish: Lua code, Effects
+        
+        # Merge and filter
+        if plan is None:
+            plan = {"plan": "Default Plan (Conductor Error)", "commands": []}
+        
+        all_raw_commands = commands + plan.get("commands", [])
+        
+        ordered_commands = []
+        # Priority 1: Setup
+        for c in all_raw_commands:
+            ctype = c.get("type")
+            if ctype in ["init_arrangement", "set_bpm", "set_lpb", "add_track"]:
+                # Prevent duplicate system commands
+                if ctype == "init_arrangement" and any(x["type"] == "init_arrangement" for x in ordered_commands):
+                    continue
+                if ctype == "set_bpm" and any(x["type"] == "set_bpm" for x in ordered_commands):
+                    continue
+                if ctype == "set_lpb" and any(x["type"] == "set_lpb" for x in ordered_commands):
+                    continue
+                if ctype == "add_track":
+                    existing_track_indices = [x.get("track") for x in ordered_commands if x["type"] == "add_track"]
+                    if c.get("track") in existing_track_indices:
+                        continue
+                ordered_commands.append(c)
+        
+        # Priority 2: Notes
+        for c in all_raw_commands:
+            if c.get("type") in ["set_note", "note_off"]:
+                ordered_commands.append(c)
+        
+        # Priority 3: Everything else (Lua, automation)
+        for c in all_raw_commands:
+            if c.get("type") not in ["init_arrangement", "set_bpm", "set_lpb", "add_track", "set_note", "note_off"]:
+                ordered_commands.append(c)
+
         update_task(task_id, {
             "status": "success",
-            "notes": {}, # Legacy field
-            "commands": commands, # The real meat
-            "raw_output": raw_sequence,
-            "message": "Native MIDI Generation (Llama 3.2-1B) Complete!"
+            "commands": ordered_commands,
+            "message": f"Composition Complete! {plan.get('plan', 'Ready.')}"
         })
             
     except Exception as e:

@@ -259,7 +259,12 @@ local function execute_command(cmd)
     while #song.sequencer.pattern_sequence > 1 do
       song.sequencer:remove_sequence_at(2)
     end
-    for i = 1, (cmd.patterns or 8) - 1 do
+    -- Fix: handle case where patterns might be a string or table from AI
+    local num_patterns = cmd.patterns
+    if type(num_patterns) == "table" then num_patterns = num_patterns[1] end
+    num_patterns = tonumber(num_patterns) or 8
+    
+    for i = 1, num_patterns - 1 do
       song.sequencer:insert_new_pattern_at(i + 1)
     end
 
@@ -332,6 +337,19 @@ local function execute_command(cmd)
         end
       end
     end
+  elseif cmd.type == "execute_lua" then
+    local code = cmd.code
+    if code then
+      local chunk, err = loadstring(code)
+      if chunk then
+        local ok, res = pcall(chunk)
+        if not ok then
+          renoise.app():show_status("AI Lua Error: " .. tostring(res))
+        end
+      else
+        renoise.app():show_status("AI Lua Syntax Error: " .. tostring(err))
+      end
+    end
   end
 end
 
@@ -381,11 +399,16 @@ local function compose_with_ai()
     
     table.insert(chat_history, { role = "user", content = final_prompt })
     
+    local song_length_idx = vb.views.song_length_selector.value
+    local song_lengths = {4, 8, 12, 16, 24, 32, 48, 64}
+    local selected_length = song_lengths[song_length_idx] or 16
+    
     local payload = {
       model = options.ollama_model.value,
       messages = chat_history,
       stream = false,
-      format = "json"
+      format = "json",
+      song_length = selected_length
     }
     
     local json_body = json.encode(payload)
@@ -452,7 +475,22 @@ local function compose_with_ai()
     "Dreamy Lo-fi Hip Hop beat with soft dusty drums and a mellow Rhodes progression.",
     "Hard Psytrance sequence with galloping basslines at 145BPM.",
     "Melodic Progressive House with uplifting pads and a steady drive.",
-    "Experimental Glitch hop with randomized percussion and organic sounds."
+    "Experimental Glitch hop with randomized percussion and organic sounds.",
+    "Hardstyle Banger with aggressive distorted kicks and epic supersaw leads.",
+    "Deep Minimal House with smooth chords and sophisticated percussion.",
+    "Synthwave 80s Vibe with gated reverb drums and neon analog synth leads.",
+    "Dark Ambient Soundscape focusing on textures, drones, and no drums.",
+    "Future Bass with wobbly emotional synths and punchy half-time drums.",
+    "Classic 90s Eurodance with high-energy bass and infectious synth melodies.",
+    "Heavy Dubstep with aggressive growls and syncopated rhythmic bass movement.",
+    "Filtered French House with funky disco samples and side-chained bass.",
+    "Old School Jungle with complex amen break chops and deep sub-bass.",
+    "Uplifting Trance with ethereal pads and driving 138BPM arpeggios.",
+    "Atmospheric DnB: 170BPM with lush pads, rolling breakbeats, and a simple 808 sub.",
+    "Neurofunk Banger: 172BPM with aggressive Reese bass modulation and tight technical drums.",
+    "Jump-up DnB: 175BPM with high-energy screeching bass and a simple but heavy 2rd-step beat.",
+    "Techstep Sequence: 170BPM with dark industrial stabs and cold, hard-hitting drum patterns.",
+    "Ragga Jungle: 165BPM with classic sampled breaks, deep reggae-inspired sub bass, and chaotic percussion."
   }
 
   local dialog_content = vb:column {
@@ -477,6 +515,14 @@ local function compose_with_ai()
     vb:row {
       vb:checkbox { id = "use_native_midi", value = true },
       vb:text { text = "Use Native MIDI Expert Model (Llama 3.2-1B)", font = "italic" }
+    },
+    vb:row {
+      vb:text { text = "📏 Song Length (Patterns):", font = "bold" },
+      vb:popup {
+        id = "song_length_selector",
+        items = {"4", "8", "12", "16", "24", "32", "48", "64"},
+        value = 4 -- 16 patterns
+      }
     },
     vb:row {
       spacing = 10,

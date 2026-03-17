@@ -117,6 +117,9 @@ def compose_native_midi():
                 prompt = msg.get('content', '')
                 break
     
+    # Extract song_length (default to 16)
+    song_length = data.get('song_length', 16)
+    
     task_id = f"task_midi_{int(time.time())}"
     task_data = {
         "status": "pending",
@@ -126,6 +129,7 @@ def compose_native_midi():
         "error": "",
         "type": "compose_native_midi",
         "prompt": prompt,
+        "song_length": song_length,
         "task_id": task_id,
         "host_url": request.host_url.rstrip('/')
     }

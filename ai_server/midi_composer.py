@@ -493,174 +493,231 @@ def ollama_parse_intent(prompt: str, model: str = "llama3.1", timeout: int = 30)
 
 class MIDIComposer:
     """
-    Uses Ollama (llama3.1 7B) for musical intent understanding.
-    Falls back to regex parser if Ollama is unavailable.
-    Note generation is always deterministic (music-theory correct).
+    MIDIComposer 2.0: Specialized Neural Brain for Renoise.
+    Uses slseanwu/MIDI-LLM_Llama-3.2-1B with a custom Renoise LoRA adapter.
+    Falls back to deterministic generation if GPU is OOM or model fails.
     """
 
-    def __init__(self, model_id: str = "llama3.1"):
-        self.ollama_model = model_id
-        self._last_intent  = None
-        print(f"MIDIComposer: Initialised with Ollama model '{model_id}'.")
-        print("MIDIComposer: Verifying Ollama connection...")
+    def __init__(self, model_id: str = "asigalov61/Music-Llama-Medium"):
+        self.model_id = model_id
+        self.lora_id = "/home/juanquy/dev/Renoise AI Plugin/ai_server/renoise_midi_model_lora"
+        self.tokenizer = None
+        self.model = None
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._last_intent = None
+        
+        print(f"MIDIComposer: Initializing {self.model_id} on {self.device}...")
         try:
-            test = ollama_parse_intent("test", model=self.ollama_model, timeout=10)
-            print(f"MIDIComposer: Ollama OK. Detected style='{test.get('style')}'")
+            bnb_config = None
+            if self.device == "cuda":
+                bnb_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.bfloat16,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_use_double_quant=True,
+                )
+            
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_id,
+                quantization_config=bnb_config,
+                torch_dtype=torch.bfloat16 if self.device == "cuda" else torch.float32,
+                trust_remote_code=True,
+                device_map="auto" if self.device == "cuda" else None
+            )
+            
+            print(f"MIDIComposer: Neural Brain {self.model_id} Ready (4-bit).")
         except Exception as e:
-            print(f"MIDIComposer: Ollama not reachable ({e}). Regex fallback active.")
+            print(f"MIDIComposer: Neural init failed ({e}). Minimal mode active.")
+
+    def unload(self):
+        """Force unload from VRAM."""
+        print(f"MIDIComposer: Unloading {self.model_id} from VRAM...")
+        if self.model:
+            del self.model
+            self.model = None
+        if self.tokenizer:
+            del self.tokenizer
+            self.tokenizer = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            import gc
+            gc.collect()
 
     def generate_midi_sequence(self, prompt: str) -> str:
         """
-        Returns JSON string of musical intent.
-        Tries Ollama first; falls back to regex parser.
+        Generates raw MIDI tokens or Lua structure via the neural model.
         """
-        print(f"[Composer] Analysing prompt via Ollama: '{prompt[:60]}'...")
+        if self.model is None:
+            print("[Composer] Model not loaded, falling back to regex.")
+            return json.dumps(regex_parse_intent(prompt))
+
+        print(f"[Composer] Neural Dreaming: '{prompt[:60]}'...")
+        # Add LoRA trigger if needed
+        full_prompt = prompt if "PIECE_START" in prompt else f"{prompt} PIECE_START"
+        
+        inputs = self.tokenizer(full_prompt, return_tensors="pt").to(self.device)
+        with torch.inference_mode():
+            outputs = self.model.generate(
+                **inputs, 
+                max_new_tokens=256,
+                do_sample=True,
+                temperature=0.8,
+                top_p=0.9
+            )
+        
+        result = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # Extract the part after the prompt
+        if full_prompt in result:
+            result = result.split(full_prompt)[-1].strip()
+            
+        print(f"[Composer] Generated {len(result)} characters of neural data.")
+        return result
+
+    def tokens_to_renoise_json(self, tokens: str, song_length: int = 1) -> list:
+        """
+        Parses neural/token output into Renoise JSON.
+        Supports:
+        1. Grid-Native: [[line, note, inst, vel, delay], ...]
+        2. MIDI-Legacy: Standard MIDI-LLM tokens
+        """
+        # Detection: Does it look like a JSON list of line-tuples?
+        tokens_stripped = tokens.strip()
+        if tokens_stripped.startswith("[[") or tokens_stripped.startswith("[{\"line\""):
+            try:
+                grid_data = json.loads(tokens_stripped)
+                return self._parse_native_grid_tokens(grid_data, song_length)
+            except:
+                pass # Fallback to legacy
+
+        intent_json = "{}"
+        if self._last_intent:
+            intent_json = json.dumps(self._last_intent)
+        else:
+            # Fallback intent if none preserved
+            intent_json = json.dumps(regex_parse_intent("techno"))
+            
+        return self._legacy_tokens_to_json(intent_json, song_length=song_length)
+
+    def _parse_native_grid_tokens(self, grid_data: list, song_length: int) -> list:
+        """
+        Converts native [line, note, inst, vel, delay] tuples directly to Renoise commands.
+        """
+        commands = []
+        for item in grid_data:
+            # Format could be list [0, "C-4", 1, 128, 0] or dict {"line":0, "note":"C-4"...}
+            if isinstance(item, list) and len(item) >= 2:
+                line = item[0]
+                note = item[1]
+                inst = item[2] if len(item) > 2 else 0
+                vel  = item[3] if len(item) > 3 else 255 # 0xFF
+                
+                commands.append({
+                    "type": "set_note",
+                    "track": 0, # Default to track 0 or parsed from conductor
+                    "line": int(line),
+                    "note": str(note),
+                    "instrument": int(inst),
+                    "velocity": int(vel)
+                })
+            elif isinstance(item, dict) and "line" in item and "note" in item:
+                commands.append({
+                    "type": "set_note",
+                    "track": item.get("track", 0),
+                    "line": int(item["line"]),
+                    "note": str(item["note"]),
+                    "instrument": int(item.get("instrument", 0)),
+                    "velocity": int(item.get("velocity", 255))
+                })
+        return commands
+
+    def _legacy_tokens_to_json(self, token_string: str, song_length: int = 1) -> list:
+        """
+        Deterministic Theory Engine: Converts Intent JSON -> Renoise Commands.
+        """
         try:
-            intent = ollama_parse_intent(prompt, model=self.ollama_model, timeout=45)
-            intent["_source"] = "ollama"
-            print(f"[Composer] Ollama intent: key={intent.get('key')} "
-                  f"scale={intent.get('scale')} bpm={intent.get('bpm')} "
-                  f"roles={[r['name'] for r in intent.get('roles',[])]}")
-        except Exception as e:
-            print(f"[Composer] Ollama failed ({e}), using regex fallback.")
-            intent = regex_parse_intent(prompt)
-            intent["_source"] = "regex"
+            # If it's already a dict, use it. If string, parse it.
+            if isinstance(token_string, dict):
+                intent = token_string
+            else:
+                intent = json.loads(token_string)
+        except:
+            intent = regex_parse_intent("techno")
 
-        self._last_intent = intent
-        return json.dumps(intent)
-
-    def tokens_to_renoise_json(self, token_string: str) -> list:
-        """
-        Converts the JSON intent → full ABABCB song structure in Renoise.
-
-        Song sections (each 32 lines = 1 Renoise pattern slot):
-          0: Intro      — kick only, basic groove
-          1: Verse A    — kick + bass + pad (Rule of Three)
-          2: Pre-Chorus — kick + bass + pad + lead (building)
-          3: Chorus     — full 8 tracks, all elements
-          4: Verse B    — same as Verse A
-          5: Chorus 2   — full 8 tracks again
-          6: Outro      — kick only fading out
-
-        Absolute line numbers flow through all patterns; the Lua executor
-        automatically routes them to the right Renoise pattern.
-        """
-        try:
-            intent = json.loads(token_string)
-        except Exception:
-            intent = self._last_intent or regex_parse_intent("minimal techno")
-
-        scale_name  = intent.get("scale", "minor").lower()
-        root        = int(intent.get("root", 0))
-        lpb         = int(intent.get("lpb", 4))
-        chord_prog  = intent.get("chord_progression", ["i","VI","III","VII"])
-        roles       = intent.get("roles", [])
-        bpm         = int(intent.get("bpm", 128))
-
-        if not roles:
-            roles = [
-                {"name":"Kick",      "pattern":"kick"},
-                {"name":"Snare",     "pattern":"snare"},
-                {"name":"Clap",      "pattern":"clap"},
-                {"name":"Closed HH", "pattern":"hihat"},
-                {"name":"Open HH",   "pattern":"open_hat"},
-                {"name":"Sub Bass",  "pattern":"root_walk"},
-                {"name":"Lead Synth","pattern":"melodic"},
-                {"name":"Synth Pad", "pattern":"sweep"},
-            ]
-
-        # ── Song structure ──────────────────────────────────────────────
-        # Each section = 32 lines. ABABCB + Outro = 7 sections.
-        SECTION_LINES  = 32
-        NUM_SECTIONS   = 7
-
-        SECTIONS = [
-            {"name": "Intro",      "active_tracks": [0]},                    # Kick only
-            {"name": "Verse A",    "active_tracks": [0,1,2,3,5,6]},          # No open HH, no pad yet
-            {"name": "Pre-Chorus", "active_tracks": [0,1,2,3,4,5,6]},        # Build adding open HH
-            {"name": "Chorus",     "active_tracks": [0,1,2,3,4,5,6,7]},      # Full all 8 tracks
-            {"name": "Verse B",    "active_tracks": [0,1,2,3,5,7]},          # Different combo
-            {"name": "Chorus 2",   "active_tracks": [0,1,2,3,4,5,6,7]},      # Full chorus again
-            {"name": "Outro",      "active_tracks": [0,3,5]},                # Strip back
-        ]
-
-        # Clamp to available roles
-        num_roles = len(roles)
-        for sec in SECTIONS:
-            sec["active_tracks"] = [t for t in sec["active_tracks"] if t < num_roles]
-
-        lead_notes = scale_pitches(root, 4, scale_name)
+        key = intent.get("key", "C")
+        root = ROOT_MAP.get(key, 0)
+        scale = intent.get("scale", "minor")
+        bpm = intent.get("bpm", 128)
+        lpb = intent.get("lpb", 4)
+        prog = intent.get("chord_progression", ["i", "VI", "III", "VII"])
+        lines = intent.get("lines", 128)
+        roles = intent.get("roles", [])
 
         commands = []
+        
+        # 1. Globals
+        commands.append({"type": "set_bpm", "bpm": int(bpm)})
+        commands.append({"type": "set_lpb", "lpb": int(lpb)})
+        commands.append({"type": "init_arrangement", "patterns": int(song_length)})
 
-        # 1. Global setup
-        commands.append({"type": "set_bpm", "bpm": bpm})
-        commands.append({"type": "set_lpb", "lpb": lpb})
+        # 2. Multi-Pattern Arrangement Loop
+        for p_idx in range(song_length):
+            # Simple Heuristic for Electronic Music Structure:
+            # Intro: 0-15%, Verse: 15-45%, Build: 45-65%, Drop: 65-85%, Outro: 85-100%
+            progress = p_idx / max(1, song_length)
+            is_intro = progress < 0.10 # Shorter intro
+            is_outro = progress > 0.90 # Shorter outro
+            is_drop = 0.50 < progress < 0.85 # Longer main section
 
-        # 2. Create 7 pattern slots in the sequencer
-        commands.append({"type": "init_arrangement", "patterns": NUM_SECTIONS})
-
-        # 3. Name AND size each section pattern to exactly SECTION_LINES lines
-        for sec_idx, sec in enumerate(SECTIONS):
-            commands.append({
-                "type":  "set_pattern_name",
-                "index": sec_idx,
-                "name":  sec["name"]
-            })
-            commands.append({
-                "type":  "set_pattern_length",
-                "index": sec_idx,
-                "lines": SECTION_LINES      # ← critical: sets each pattern to exactly 32 lines
-            })
-
-        # 4. Create all 8 tracks
-        for trk_idx, role in enumerate(roles):
-            commands.append({
-                "type":  "add_track",
-                "track": trk_idx,
-                "name":  role["name"]
-            })
-
-        # 5. Fill each section — explicit pattern index + LOCAL line (not absolute)
-        for sec_idx, sec in enumerate(SECTIONS):
-            active = set(sec["active_tracks"])
-
-            for trk_idx in range(num_roles):
-                if trk_idx not in active:
+            for i, role in enumerate(roles):
+                track_idx = i # 0-based
+                
+                # Arrangement Logic: Decide if this instrument is active in this pattern
+                # Always active: Kick, Sub Bass (except Outro)
+                # Build/Drop only: High-energy Lead
+                role_name = role["name"].lower()
+                is_active = True
+                
+                if "lead" in role_name:
+                    if is_intro or is_outro: is_active = False # Leads only in main
+                if "snare" in role_name or "clap" in role_name:
+                    if is_intro and p_idx % 2 != 0: is_active = False # Half-intensity drums
+                
+                if not is_active:
                     continue
 
-                role = roles[trk_idx]
-
+                if p_idx == 0:
+                    # Only add track definition once
+                    commands.append({"type": "add_track", "track": track_idx, "name": role["name"]})
+                
+                # Generate notes (optionally vary the pattern a bit based on p_idx)
                 events = role_to_events(
-                    role_name  = role.get("name", "Lead"),
-                    pattern_id = role.get("pattern", "melodic"),
-                    notes      = lead_notes,
-                    lines      = SECTION_LINES,     # generate SECTION_LINES worth of events
-                    lpb        = lpb,
-                    chord_prog = chord_prog,
-                    root       = root,
-                    scale_name = scale_name,
+                    role["name"], role["pattern"], None, lines, lpb,
+                    prog, root, scale
                 )
-
-                for (local_line, note_str) in events:
-                    if local_line >= SECTION_LINES:
-                        continue
+                
+                # Convert to Renoise commands
+                for line, note in events:
                     commands.append({
-                        "type":       "set_note",
-                        "pattern":    sec_idx,      # ← explicit section slot (0-based)
-                        "track":      trk_idx,
-                        "line":       local_line,   # ← local within this section (0-based)
-                        "note":       note_str,
-                        "volume":     "7F",
-                        "instrument": trk_idx
+                        "type": "set_note",
+                        "track": track_idx,
+                        "pattern": p_idx, # Targeted pattern
+                        "line": line,
+                        "note": note,
+                        "instrument": i,
+                        "volume": "7F"
                     })
+                    # Add a note-off 2 lines later for non-pads
+                    if "pad" not in role["name"].lower():
+                        off_line = line + 2
+                        if off_line < lines:
+                            commands.append({
+                                "type": "note_off",
+                                "track": track_idx,
+                                "pattern": p_idx,
+                                "line": off_line
+                            })
 
-        note_count = sum(1 for c in commands if c["type"] == "set_note")
-        source     = intent.get("_source", "?")
-        print(f"[Composer] Song structure: {NUM_SECTIONS} sections × {SECTION_LINES} lines "
-              f"= {NUM_SECTIONS * SECTION_LINES} total lines")
-        print(f"[Composer] {note_count} notes, {num_roles} tracks, BPM={bpm} ({source})")
-        print(f"[Composer] Sections: {' → '.join(s['name'] for s in SECTIONS)}")
         return commands
 
 

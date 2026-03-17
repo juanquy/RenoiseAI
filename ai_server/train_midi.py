@@ -149,7 +149,7 @@ def train():
     tokenizer.pad_token = tokenizer.eos_token
     
     def tokenize_function(examples):
-        return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=1500) # Balanced context
+        return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=256) # High-speed musical context
 
     tokenized_datasets = dataset.map(tokenize_function, batched=True, remove_columns=["text"])
 

@@ -170,43 +170,9 @@ If you already have high-quality separated stems (e.g., from Suno AI or professi
 
 ## 🎹 Push 1 Hardware: "How to"
 
-### **1. Hardware Connection (Linux/ALSA)**
+A comprehensive guide to every button, mode, and optimization for the Push 1 hardware can now be found in:
 
-The Push 1 must be put into **User Mode** for custom LED and LCD control.
-
-- **Step 1**: Connect the Push 1 via USB.
-- **Step 2**: Press the **[User]** button on the top right of the hardware.
-- **Step 3**: In Renoise, the tool will automatically detect your **"Ableton Push User Port"** (typically `hw:5,0,1` on Linux). It uses a broadcast protocol to send LED signals to all available ports, ensuring compatibility.
-
-### **2. UI Navigation (Tab Switcher)**
-
-Navigate the main Renoise interface directly from the hardware:
-
-- **[SESSION]** → Swiches to **EDIT** tab (Pattern Editor).
-- **[TRACK]** → Switches to **MIX** tab (Mixer).
-- **[DEVICE]** → Switches to **SAMPLER** tab.
-- **[CLIP]** → Switches to **PLUGIN** tab.
-- **[BROWSE]** → Switches to **MIDI** tab.
-
-### **3. Essential Controls**
-
-- **[MASTER] Button**: Instantly selects the Renoise Master track.
-- **[METRONOME] Button**: Toggles the Renoise metronome on/off (Button glows bright when active).
-- **[PLAY] / [RECORD]**: Standard transport controls with high-intensity color feedback (Green/Red).
-- **Encoders**:
-  - **Knob 1**: BPM (Coarse control).
-  - **Knob 2**: Vertical Sequence/Line Scroll.
-  - **Knob 3**: Horizontal Track Scroll.
-  - **Knob 4**: Master Volume.
-  - **Knob 6**: LPB (Lines Per Beat).
-
-### **4. Understanding the LED Colors (Push 1 Monochrome)**
-
-Since the Push 1 side buttons are monochrome Amber, the tool uses specific values for visibility:
-
-- **Value 0**: OFF.
-- **Value 1**: **Dim Amber (Backlight)** - The tool forces this on all buttons so labels are readable.
-- **Value 4**: **Bright Amber (Active)** - Highlights the current view or toggled state.
+👉 **[HOW_TO_USE_PUSH1.md](file:///home/juanquy/dev/Renoise%20AI%20Plugin/HOW_TO_USE_PUSH1.md)**
 
 ---
 

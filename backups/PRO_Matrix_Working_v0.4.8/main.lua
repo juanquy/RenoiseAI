@@ -115,12 +115,8 @@ local function update_button_leds()
   local active_up = window.active_upper_frame
   local active_down = window.active_lower_frame
   
-  -- Push 1 CC Buttons: 4 is Bright, 1 is Dim/Backlight.
-  -- 17-19 (Green) ONLY work on Transport/Pads.
-  Midi.set_button_led(C.BTN.SESSION, active_up == renoise.ApplicationWindow.UPPER_FRAME_PATTERN_EDITOR and 4 or 1)
-  Midi.set_button_led(C.BTN.TRACK, active_up == renoise.ApplicationWindow.UPPER_FRAME_MIXER and 4 or 1)
-  
-  Midi.set_button_led(C.BTN.SESSION, active_up == renoise.ApplicationWindow.UPPER_FRAME_PATTERN_EDITOR and 4 or 1)
+  Midi.set_button_led(C.BTN.SESSION, (mode == "matrix") and 4 or 1)
+  Midi.set_button_led(C.BTN.NOTE, (mode == "tracker" or mode == "scale") and 4 or 1)
   Midi.set_button_led(C.BTN.TRACK, active_up == renoise.ApplicationWindow.UPPER_FRAME_MIXER and 4 or 1)
   
   Midi.set_button_led(C.BTN.DEVICE, (window.lower_frame_is_visible and (active_down == renoise.ApplicationWindow.LOWER_FRAME_INSTRUMENT_SAMPLE_EDITOR or active_down == 3)) and 4 or 1)
@@ -160,8 +156,16 @@ local function update_button_leds()
   pcall(function() Midi.set_button_led(C.BTN.METRONOME, t.metronome_enabled and 4 or 1) end)
 end
 
+-- Notifications
+local function show_mode_notification(msg)
+  local full_msg = "🎹 PUSH 1 >> " .. msg
+  renoise.app():show_status(full_msg)
+  print(full_msg)
+end
+
 local last_display_lines = {"", "", "", ""}
 
+-- Refresh the LCD display based on current mode
 local function update_display()
   pcall(function()
     if not Midi.is_connected() then return end
@@ -282,31 +286,37 @@ local function handle_navigation(id, val)
   local song = renoise.song()
   
   if id == C.BTN.UP then
-    if mode == "matrix" then Matrix.scroll_seq(-1)
+    if mode == "matrix" then 
+      Matrix.scroll_seq(-1)
+      song.selected_sequence_index = math.max(1, song.selected_sequence_index - 1)
     elseif shift_held then 
       song.selected_sequence_index = math.max(1, song.selected_sequence_index - 1)
     else 
-      local new_line = song.selected_line_index - 1
-      song.selected_line_index = math.max(1, new_line)
+      song.selected_line_index = math.max(1, song.selected_line_index - 1)
     end
   elseif id == C.BTN.DOWN then
-    if mode == "matrix" then Matrix.scroll_seq(1)
+    if mode == "matrix" then 
+      Matrix.scroll_seq(1)
+      song.selected_sequence_index = math.min(#song.sequencer.pattern_sequence, song.selected_sequence_index + 1)
     elseif shift_held then
       song.selected_sequence_index = math.min(#song.sequencer.pattern_sequence, song.selected_sequence_index + 1)
     else 
       local max_lines = song.patterns[song.sequencer.pattern_sequence[song.selected_sequence_index]].number_of_lines
-      local new_line = song.selected_line_index + 1
-      song.selected_line_index = math.min(max_lines, new_line)
+      song.selected_line_index = math.min(max_lines, song.selected_line_index + 1)
     end
   elseif id == C.BTN.LEFT then
-    if mode == "matrix" then Matrix.scroll_tracks(-1)
+    if mode == "matrix" then 
+      Matrix.scroll_tracks(-1)
+      song.selected_track_index = math.max(1, song.selected_track_index - 1)
     elseif shift_held then
       song.selected_track_index = math.max(1, song.selected_track_index - 8)
     else 
       song.selected_track_index = math.max(1, song.selected_track_index - 1)
     end
   elseif id == C.BTN.RIGHT then
-    if mode == "matrix" then Matrix.scroll_tracks(1)
+    if mode == "matrix" then 
+      Matrix.scroll_tracks(1)
+      song.selected_track_index = math.min(#song.tracks, song.selected_track_index + 1)
     elseif shift_held then
       song.selected_track_index = math.min(#song.tracks, song.selected_track_index + 8)
     else 
@@ -317,11 +327,13 @@ local function handle_navigation(id, val)
 end
 
 local function handle_octave(id, val)
-  if val == 0 then return end
-  local song = renoise.song()
-  local current = song.transport.octave
-  if id == C.BTN.OCTAVE_UP then song.transport.octave = math.min(8, current + 1)
-  else song.transport.octave = math.max(0, current - 1) end
+  if mode == "matrix" then
+    Matrix.page_scroll(id == C.BTN.OCTAVE_UP and 1 or -1)
+  else
+    local current = song.transport.octave
+    if id == C.BTN.OCTAVE_UP then song.transport.octave = math.min(8, current + 1)
+    else song.transport.octave = math.max(0, current - 1) end
+  end
   update_display()
 end
 
@@ -329,6 +341,12 @@ local function handle_encoder(index, delta)
   local song = renoise.song()
   local t = song.transport
   
+  if mode == "matrix" then
+    Matrix.handle_encoder(index, delta)
+    update_display()
+    return
+  end
+
   if mode == "step" then
     if index == 2 then Step.scroll_page(delta); update_display(); return end
     if index == 3 then Step.scroll_tracks(delta); update_display(); return end
@@ -376,12 +394,12 @@ local function on_midi_message(msg)
     return
   end
 
-  -- Status Bar Flash Sniffer (NUCLEAR DEBUG)
-  if pressed and not msg.is_pad then
-    local debug_msg = string.format("[AG-DEBUG] PUSH CC: %d (Value: %d)", btn_id or 0, val)
-    renoise.app():show_status(debug_msg)
-    print(debug_msg)
-  end
+  -- Status Bar Flash Sniffer (DISABLED TO PREVENT NOTIF OVERWRITE)
+  -- if pressed and not msg.is_pad then
+  --   local debug_msg = string.format("[AG-DEBUG] PUSH CC: %d (Value: %d)", btn_id or 0, val)
+  --   renoise.app():show_status(debug_msg)
+  --   print(debug_msg)
+  -- end
 
   -- Queue everything else for safe GUI-thread processing
   enqueue_action({
@@ -409,9 +427,41 @@ local function process_action(a)
   if a.is_encoder then handle_encoder(a.encoder_index, a.encoder_delta); return end
 
   if a.pressed and a.btn_id then
-    local dbg = string.format("PUSH >> CC %d (Val %d)", a.btn_id, a.val)
-    renoise.app():show_status(dbg)
-    print(dbg)
+    -- CC Sniffer (High Visibility)
+    if not a.is_pad then
+        renoise.app():show_status(string.format("[Push 1] CC %d Press - Val %d", a.btn_id, a.val))
+    end
+  end
+
+  -- 1. NUCLEAR PRIORITY: Mode Switching
+  if a.pressed then
+    if a.btn_id == C.BTN.SESSION or a.btn_id == 51 then
+      -- FORCE RE-ENTER MATRIX MODE
+      mode = "matrix"
+      Matrix.dirty = true
+      renoise.app():show_status(">> MATRIX (LIVE) MODE ACTIVE <<")
+      pcall(function() 
+        renoise.app().window.active_middle_frame = renoise.ApplicationWindow.MIDDLE_FRAME_PATTERN_EDITOR 
+        Matrix.render(true)
+      end)
+      update_display()
+      Midi.flush_hardware()
+      return -- Exit early for mode switches
+    elseif a.btn_id == C.BTN.NOTE or a.btn_id == 50 then
+      if shift_held then
+        mode = "scale"
+        renoise.app():show_status(">> SCALE MODE ACTIVE <<")
+      else
+        mode = "tracker"
+        renoise.app():show_status(">> TRACKER MODE ACTIVE <<")
+      end
+      pcall(function() 
+        renoise.app().window.active_middle_frame = renoise.ApplicationWindow.MIDDLE_FRAME_PATTERN_EDITOR 
+        if mode == "scale" then Scale.render() else Grid.render() end
+      end)
+      update_display()
+      return -- Exit early
+    end
   end
 
   -- Navigation & Focus
@@ -442,13 +492,35 @@ local function process_action(a)
       local t = renoise.song().transport
       t.metronome_enabled = not t.metronome_enabled
       update_button_leds()
-    elseif a.btn_id == C.BTN.SESSION or a.btn_id == 51 then
-      -- [Matrix] Mode (Session)
-      pcall(function()
-        renoise.app().window.active_middle_frame = renoise.ApplicationWindow.MIDDLE_FRAME_PATTERN_EDITOR
-        mode = "matrix"
-      end)
+    elseif a.btn_id == C.BTN.SCALES or a.btn_id == 58 then
+      -- Tactical Jump to Scale Mode
+      show_mode_notification("SCALE (KEYBOARD) MODE [ON]")
+      mode = "scale"
+      renoise.app().window.active_middle_frame = renoise.ApplicationWindow.MIDDLE_FRAME_PATTERN_EDITOR
+      Scale.render()
       update_display()
+    elseif a.btn_id == C.BTN.REPEAT or a.btn_id == 56 then
+      -- Tactical: Toggle Pattern Loop
+      local t = renoise.song().transport
+      t.loop_block_enabled = not t.loop_block_enabled
+      show_mode_notification("LOOP BLOCK: " .. (t.loop_block_enabled and "ON" or "OFF"))
+    elseif a.btn_id == C.BTN.ACCENT or a.btn_id == 57 then
+      -- Tactical: Metronome
+      local t = renoise.song().transport
+      t.metronome_enabled = not t.metronome_enabled
+      show_mode_notification("METRONOME: " .. (t.metronome_enabled and "ON" or "OFF"))
+    elseif a.btn_id == C.BTN.USER or a.btn_id == 59 then
+      -- Tactical: Tap Tempo
+      renoise.song().transport:tap_tempo()
+      show_mode_notification("TAP TEMPO TRIGGERED")
+    elseif a.btn_id >= 36 and a.btn_id <= 43 then
+      -- Scene Launch Buttons (Right side)
+      for i, cc in ipairs(C.BTN.SCENE) do
+        if a.btn_id == cc then
+          if mode == "matrix" then Matrix.handle_scene_press(i) end
+          break
+        end
+      end
     elseif a.btn_id == C.BTN.TRACK or a.btn_id == 112 then
       -- [Mix] Tab (Mixer)
       pcall(function() renoise.app().window.active_middle_frame = renoise.ApplicationWindow.MIDDLE_FRAME_MIXER end)
@@ -501,36 +573,54 @@ local function tool_tick()
   action_queue = {}
   
   -- 2. Progress Input Actions on GUI thread
-  for i = 1, #current_actions do
-    local ok, err = pcall(process_action, current_actions[i])
-    if not ok then print("[Push Error] process_action failed: " .. tostring(err)) end
+  -- 1. Priority: Process actions
+  while #current_actions > 0 do
+    local a = table.remove(current_actions, 1)
+    local ok, err = pcall(function() process_action(a) end)
+    if not ok then renoise.app():show_status("Action Process Err: " .. tostring(err)) end
   end
   
   -- 3. Track Playhead & Render
-  pcall(function()
+  -- 3. Render Loop
+  local ok, err = pcall(function()
     if not Midi.is_connected() then return end
     local song = renoise.song()
     if not song then return end
     local pos = song.transport.playback_pos
     
-    -- NUCLEAR THROTTLING: Only render if the LINE has changed.
-    -- We removed 'or song.transport.playing' to stop redundant iterations.
-    if pos.line ~= last_line then
-      last_line = pos.line
-      local beat = math.floor((pos.line-1)/math.max(1, song.transport.lpb))
-      
-      if mode == "tracker" then Grid.render(pos.line)
-      elseif mode == "step" then Step.render(pos.line)
-      elseif mode == "matrix" then Matrix.render() end
-      
-      if beat ~= last_beat then 
-        last_beat = beat
-        update_display() 
+    if mode == "tracker" or mode == "step" then
+      if pos.line ~= last_line then
+        last_line = pos.line
+        if mode == "tracker" then Grid.render(pos.line)
+        elseif mode == "step" then Step.render(pos.line) end
+        
+        local beat = math.floor((pos.line-1)/math.max(1, song.transport.lpb))
+        if beat ~= last_beat then 
+          last_beat = beat
+          update_display() 
+        end
       end
+    elseif mode == "matrix" then
+      -- Matrix rendering handles its own throttling via Matrix.dirty
+      Matrix.render()
+      
+      -- Still update display on beat changes if playing
+      if pos.line ~= last_line then
+        last_line = pos.line
+        local beat = math.floor((pos.line-1)/math.max(1, song.transport.lpb))
+        if beat ~= last_beat then 
+          last_beat = beat
+          update_display() 
+        end
+      end
+    else
+      -- scale mode or others
+      if pos.line ~= last_line then last_line = pos.line end
     end
   end)
+  if not ok then renoise.app():show_status("Render Err: " .. tostring(err)) end
 
-  -- 4. Flush Hardware State
+  -- 4. Flush Hardware State (Always run to clear buffers)
   Midi.flush_hardware()
   
   -- 5. Heartbeat (Visual confirmation in Renoise Status Bar)
