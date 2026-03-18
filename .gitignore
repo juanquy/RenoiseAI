@@ -20,9 +20,6 @@ ai_server/tasks/*.json
 ai_server/tasks/*.wav
 ai_server/uploads/*
 ai_server/generated/*
-ai_server/server.log
-ai_server/gunicorn.ctl
-
 # OS/IDEs
 .DS_Store
 .idea/

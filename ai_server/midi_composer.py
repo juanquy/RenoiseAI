@@ -17,8 +17,7 @@ import urllib.error
 
 try:
     import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-    from peft import PeftModel
+    # No longer loading 8B Transformers to save VRAM for Gemma-3
     _HAS_TORCH = True
 except ImportError:
     _HAS_TORCH = False
@@ -108,6 +107,11 @@ def gen_kick(lines, lpb, pattern_id="kick_4otf"):
     step = beat if "half" not in str(pattern_id) else beat * 2
     for l in range(0, lines, step):
         events.append((l, "C-1"))    # GM Kick
+        # Add a faint ghost kick 20% of the time for groove
+        if random.random() > 0.8:
+            ghost_l = l + (step // 2)
+            if ghost_l < lines:
+                events.append((ghost_l, "C-1"))
     return events
 
 def gen_snare(lines, lpb, pattern_id="snare"):
@@ -118,6 +122,11 @@ def gen_snare(lines, lpb, pattern_id="snare"):
         for beat in [1, 3]:          # beats 2 and 4 (0-indexed)
             l = bar_start + beat * lpb
             if l < lines:
+                # 30% chance of a "ghost" snare hit before the main backbeat
+                if random.random() > 0.7:
+                     ghost_l = l - (lpb // 2)
+                     if ghost_l > 0:
+                         events.append((ghost_l, "D-1"))
                 events.append((l, "D-1"))  # GM Snare
     return events
 
@@ -138,7 +147,14 @@ def gen_hihat(lines, lpb, pattern_id="hihat"):
     events = []
     step = max(1, lpb // 2)
     for l in range(0, lines, step):
-        events.append((l, "F#1"))    # GM Closed HH
+        # 90% chance of hi-hat (occasional missed hit for realism)
+        if random.random() > 0.1:
+            events.append((l, "F#1"))    # GM Closed HH
+        # 15% chance of an extra rapid 16th note fill
+        if random.random() > 0.85:
+            fill_l = l + (step // 2)
+            if fill_l < lines:
+                events.append((fill_l, "F#1"))
     return events
 
 def gen_open_hat(lines, lpb, pattern_id="open_hat"):
@@ -231,7 +247,19 @@ def gen_lead(notes, lines, lpb, chord_prog, root, scale_name, pattern_id="lead_p
         for i, off in enumerate(offsets):
             l = bar_start + off
             if l < lines:
-                events.append((l, midi_to_renoise(phrase[i % len(phrase)])))
+                # Add random velocity or slight pitch variation
+                note_midi = phrase[i % len(phrase)]
+                # 20% chance to shift note by an octave or scale step
+                if random.random() > 0.8:
+                    note_midi += random.choice([-12, 0, 7, 12])
+                
+                events.append((l, midi_to_renoise(note_midi)))
+        
+        # Add a random "flourish" note 10% of the time
+        if random.random() > 0.9:
+            flourish_l = bar_start + bar - 1
+            if flourish_l < lines:
+                events.append((flourish_l, midi_to_renoise(phrase[0] + 12)))
 
     return events
 
@@ -500,133 +528,149 @@ class MIDIComposer:
 
     def __init__(self, model_id: str = "asigalov61/Music-Llama-Medium"):
         self.model_id = model_id
-        self.lora_id = "/home/juanquy/dev/Renoise AI Plugin/ai_server/renoise_midi_model_lora"
-        self.tokenizer = None
-        self.model = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self._last_intent = None
         
-        print(f"MIDIComposer: Initializing {self.model_id} on {self.device}...")
-        try:
-            bnb_config = None
-            if self.device == "cuda":
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.bfloat16,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_use_double_quant=True,
-                )
-            
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_id,
-                quantization_config=bnb_config,
-                torch_dtype=torch.bfloat16 if self.device == "cuda" else torch.float32,
-                trust_remote_code=True,
-                device_map="auto" if self.device == "cuda" else None
-            )
-            
-            print(f"MIDIComposer: Neural Brain {self.model_id} Ready (4-bit).")
-        except Exception as e:
-            print(f"MIDIComposer: Neural init failed ({e}). Minimal mode active.")
+        # In Renoise Suite 2.0, we use Gemma-3 via Ollama for ALL neural steps.
+        # This class now handles orchestration and parsing, not direct 4-bit load.
+        print(f"MIDIComposer: Initialized in Lightweight Mode.")
 
     def unload(self):
         """Force unload from VRAM."""
-        print(f"MIDIComposer: Unloading {self.model_id} from VRAM...")
-        if self.model:
-            del self.model
-            self.model = None
-        if self.tokenizer:
-            del self.tokenizer
-            self.tokenizer = None
+        print(f"MIDIComposer: Cleanup...")
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             import gc
             gc.collect()
 
-    def generate_midi_sequence(self, prompt: str) -> str:
+    def generate_midi_sequence(self, role_prompt: str, instruments: list = None, plan_context: str = "", forced_instrument: int = None) -> str:
         """
-        Generates raw MIDI tokens or Lua structure via the neural model.
+        Generates Renoise-native MIDI data using Gemma-3 via Ollama.
         """
-        if self.model is None:
-            print("[Composer] Model not loaded, falling back to regex.")
-            return json.dumps(regex_parse_intent(prompt))
+        print(f"[Composer] Neural Dreaming (via Ollama) for: '{role_prompt[:60]}'...")
+        
+        inst_info = ""
+        if forced_instrument is not None:
+            inst_info = f"\nMANDATORY: USE INSTRUMENT INDEX {forced_instrument} FOR ALL NOTES."
+        elif instruments:
+            inst_info = "\nAVAILABLE INSTRUMENTS:\n"
+            for inst in instruments:
+                inst_info += f"- Slot {inst['index']}: {inst['name']}\n"
+            inst_info += "\nUSE THE CORRECT SLOT INDEX FOR THE 'instrument' FIELD."
 
-        print(f"[Composer] Neural Dreaming: '{prompt[:60]}'...")
-        # Add LoRA trigger if needed
-        full_prompt = prompt if "PIECE_START" in prompt else f"{prompt} PIECE_START"
+        system_prompt = (
+            "You are a Renoise Music Expert. Generate musical events for a SPECIFIC ROLE in a track. "
+            "Output ONLY a JSON list of objects: { \"line\": 0, \"note\": \"C-4\", \"velocity\": 127, \"instrument\": 1, \"delay\": 0 }. "
+            "Lines are 0-63 (for one pattern). Max 64 lines. "
+            "DRUM RULE: For drum hits (Kick, Snare, Clap, Hats), ALWAYS use C-4 as the base note. "
+            "Keep it musical, syncopated, and genre-appropriate. "
+            f"{inst_info}\n"
+            "Return ONLY raw JSON list. No talk."
+        )
         
-        inputs = self.tokenizer(full_prompt, return_tensors="pt").to(self.device)
-        with torch.inference_mode():
-            outputs = self.model.generate(
-                **inputs, 
-                max_new_tokens=256,
-                do_sample=True,
-                temperature=0.8,
-                top_p=0.9
-            )
-        
-        result = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # Extract the part after the prompt
-        if full_prompt in result:
-            result = result.split(full_prompt)[-1].strip()
+        try:
+            url = "http://localhost:11434/api/generate"
+            prompt_text = f"SONG CONTEXT: {plan_context}\nROLE: {role_prompt}\n\nGenerate dynamic note events for this role."
             
-        print(f"[Composer] Generated {len(result)} characters of neural data.")
-        return result
+            payload = {
+                "model": "gemma3:12b",
+                "prompt": prompt_text,
+                "system": system_prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.9,
+                    "top_p": 0.9
+                }
+            }
+            
+            import requests
+            response = requests.post(url, json=payload, timeout=120)
+            if response.status_code == 200:
+                result = response.json().get("response", "")
+                result = re.sub(r"```json|```", "", result).strip()
+                print(f"[Composer] Generated {len(result)} chars for role.")
+                return result
+            else:
+                print(f"[Composer] Ollama error: {response.text}")
+        except Exception as e:
+            print(f"[Composer] Ollama fallback failed: {e}")
+            
+        return "[]" # Return empty list on failure
 
-    def tokens_to_renoise_json(self, tokens: str, song_length: int = 1) -> list:
+    def _enforce_drum_octave(self, note_str: str) -> str:
+        """
+        Ensures drum notes are in Octave 4 (e.g., C-1 -> C-4).
+        """
+        if not note_str or len(note_str) < 3:
+            return note_str
+        
+        # If the note is already in octave 4, leave it
+        if "-4" in note_str:
+            return note_str
+            
+        # If the note is in octave 1, 2, or 3, shift to 4
+        # Common in generic MIDI models to output C-1 or C-3 for kicks
+        import re
+        return re.sub(r"-[0-3]", "-4", note_str)
+
+    def tokens_to_renoise_json(self, tokens: str, song_length: int = 1, target_track: int = 0, forced_instrument: int = None, is_drum: bool = False) -> list:
         """
         Parses neural/token output into Renoise JSON.
-        Supports:
-        1. Grid-Native: [[line, note, inst, vel, delay], ...]
-        2. MIDI-Legacy: Standard MIDI-LLM tokens
         """
-        # Detection: Does it look like a JSON list of line-tuples?
         tokens_stripped = tokens.strip()
         if tokens_stripped.startswith("[[") or tokens_stripped.startswith("[{\"line\""):
             try:
                 grid_data = json.loads(tokens_stripped)
-                return self._parse_native_grid_tokens(grid_data, song_length)
+                return self._parse_native_grid_tokens(grid_data, song_length, target_track, forced_instrument, is_drum)
             except:
-                pass # Fallback to legacy
-
+                pass
+        
+        # Fallback to legacy
         intent_json = "{}"
         if self._last_intent:
             intent_json = json.dumps(self._last_intent)
         else:
-            # Fallback intent if none preserved
             intent_json = json.dumps(regex_parse_intent("techno"))
             
         return self._legacy_tokens_to_json(intent_json, song_length=song_length)
 
-    def _parse_native_grid_tokens(self, grid_data: list, song_length: int) -> list:
+    def _parse_native_grid_tokens(self, grid_data: list, song_length: int, target_track: int = 0, forced_instrument: int = None, is_drum: bool = False) -> list:
         """
         Converts native [line, note, inst, vel, delay] tuples directly to Renoise commands.
         """
         commands = []
         for item in grid_data:
-            # Format could be list [0, "C-4", 1, 128, 0] or dict {"line":0, "note":"C-4"...}
             if isinstance(item, list) and len(item) >= 2:
                 line = item[0]
-                note = item[1]
-                inst = item[2] if len(item) > 2 else 0
-                vel  = item[3] if len(item) > 3 else 255 # 0xFF
+                note = str(item[1])
+                if is_drum:
+                    note = self._enforce_drum_octave(note)
+                    
+                inst = forced_instrument if forced_instrument is not None else (item[2] if len(item) > 2 else 0)
+                vel  = item[3] if len(item) > 3 else 255
                 
                 commands.append({
                     "type": "set_note",
-                    "track": 0, # Default to track 0 or parsed from conductor
+                    "track": target_track,
+                    "pattern": 0, 
                     "line": int(line),
-                    "note": str(note),
+                    "note": note,
                     "instrument": int(inst),
                     "velocity": int(vel)
                 })
             elif isinstance(item, dict) and "line" in item and "note" in item:
+                note_val = str(item["note"])
+                if is_drum:
+                    note_val = self._enforce_drum_octave(note_val)
+                    
+                inst_val = forced_instrument if forced_instrument is not None else item.get("instrument", 0)
                 commands.append({
                     "type": "set_note",
-                    "track": item.get("track", 0),
+                    "track": target_track,
+                    "pattern": item.get("pattern", 0),
                     "line": int(item["line"]),
-                    "note": str(item["note"]),
-                    "instrument": int(item.get("instrument", 0)),
+                    "note": note_val,
+                    "instrument": int(inst_val),
                     "velocity": int(item.get("velocity", 255))
                 })
         return commands

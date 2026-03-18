@@ -201,17 +201,30 @@ local function execute_command(cmd)
   if cmd.type == "add_track" then
     local new_track_idx = cmd.track + 1
     if new_track_idx <= song.sequencer_track_count then
-      song:track(new_track_idx).name = cmd.name or string.format("Track %02d", new_track_idx)
+      -- Only rename if the track name is generic/empty
+      local current_name = song:track(new_track_idx).name
+      if current_name == "" or current_name:find("Track %d+") then
+        song:track(new_track_idx).name = cmd.name or current_name
+      end
     else
       local track = song:insert_track_at(new_track_idx)
       track.name = cmd.name or string.format("Track %02d", new_track_idx)
     end
-    -- Auto-instantiate a dummy instrument to hold the MIDI notes
-    if new_track_idx > #song.instruments then
-      local inst = song:insert_instrument_at(new_track_idx)
-      inst.name = cmd.name or "AI Synth"
+
+    -- Handle instrument assignment/matching
+    local target_inst_idx = cmd.instrument_index
+    if target_inst_idx then
+      -- Conductor already matched this to an existing instrument
+      -- Ensure the track is actually assigned to this instrument (Renoise tracks point to instruments)
+      -- Note: In Renoise, notes in the pattern have an instrument index. 
+      -- The track doesn't "own" an instrument strictly, but for AI we conceptually link them.
+      print(string.format("AI Suite: Mapping track %d to instrument %d", new_track_idx, target_inst_idx))
     else
-      song.instruments[new_track_idx].name = cmd.name or "AI Synth"
+      -- Fallback: If no mapping provided, and we are adding a track, check if we should create a slot
+      if new_track_idx > #song.instruments then
+        local inst = song:insert_instrument_at(new_track_idx)
+        inst.name = cmd.name or "AI Instrument"
+      end
     end
     
   elseif cmd.type == "clear_track" then
@@ -403,12 +416,25 @@ local function compose_with_ai()
     local song_lengths = {4, 8, 12, 16, 24, 32, 48, 64}
     local selected_length = song_lengths[song_length_idx] or 16
     
+    local inst_list = {}
+    for i = 1, #renoise.song().instruments do
+      local inst = renoise.song().instruments[i]
+      local has_content = #inst.samples > 0 or (inst.plugin_properties and inst.plugin_properties.plugin_device ~= nil)
+      if inst.name ~= "" or has_content then
+        table.insert(inst_list, { 
+          index = i-1, 
+          name = (inst.name ~= "" and inst.name or ("Slot " .. tostring(i-1))) 
+        })
+      end
+    end
+
     local payload = {
       model = options.ollama_model.value,
       messages = chat_history,
       stream = false,
       format = "json",
-      song_length = selected_length
+      song_length = selected_length,
+      instruments = inst_list
     }
     
     local json_body = json.encode(payload)

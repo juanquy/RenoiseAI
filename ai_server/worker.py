@@ -141,21 +141,63 @@ def run_compose_native_midi_bg(task):
         song_length = task.get("song_length", 16)
         
         # Step 1: Conductor Planning (Using Gemma-3 via Ollama)
-        plan = conductor.orchestrate(prompt, song_length=song_length)
+        instruments = task.get("instruments", [])
+        plan = conductor.orchestrate(prompt, song_length=song_length, instruments=instruments)
         
-        # Step 2: Swap VRAM (Unload Ollama, Load Transformers)
-        unload_ollama_models()
+        # Step 2: Neural MIDI Dreaming (Multi-Section / Multi-Track)
+        final_midi_commands = []
+        if plan and "sections" in plan and "commands" in plan:
+            sections = plan.get("sections", [])
+            tracks_to_fill = [c for c in plan["commands"] if c.get("type") == "add_track"]
+            
+            composer = get_midi_composer()
+            
+            for section in sections:
+                sec_name = section.get("name", "Section")
+                start_p = int(section.get("start_pattern", 0))
+                end_p = int(section.get("end_pattern", 0))
+                sec_desc = section.get("description", "")
+                
+                update_task(task_id, {"message": f"Neural Dreaming: Section '{sec_name}' (Patterns {start_p}-{end_p})..."})
+                
+                for t_info in tracks_to_fill:
+                    track_name = t_info.get("name", "Synth")
+                    track_idx = t_info.get("track", 0)
+                    forced_inst = t_info.get("instrument_index") # Extracted from add_track command
+                    
+                    # Logic to identify if this is a drum track
+                    drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum", "rim", "crash", "ride"]
+                    is_drum = any(k in track_name.lower() for k in drum_keywords)
+                    
+                    # Plan context for this specific section and track
+                    role_context = f"Section: {sec_name}. Track: {track_name}. Goal: {sec_desc}. Forced Instrument Slot: {forced_inst}. Overall: {plan.get('plan', '')}"
+                    
+                    # Generate a unique sequence for this section
+                    raw_output = composer.generate_midi_sequence(
+                        role_prompt=role_context,
+                        instruments=instruments,
+                        plan_context=plan.get("plan", prompt),
+                        forced_instrument=forced_inst
+                    )
+                    
+                    # Convert to base Renoise commands (usually Pattern 0 relative)
+                    base_commands = composer.tokens_to_renoise_json(
+                        raw_output, 
+                        song_length=1, # Single pattern base
+                        target_track=track_idx,
+                        forced_instrument=forced_inst,
+                        is_drum=is_drum
+                    )
+                    
+                    # Duplicate/Distribute across pattern range
+                    for p_idx in range(start_p, end_p + 1):
+                        for b_cmd in base_commands:
+                            if b_cmd.get("type") == "set_note" or b_cmd.get("type") == "note_off":
+                                new_cmd = b_cmd.copy()
+                                new_cmd["pattern"] = p_idx
+                                final_midi_commands.append(new_cmd)
         
-        update_task(task_id, {"message": "Neural Dreaming: Loading 8B Music Brain..."})
-        composer = get_midi_composer() # This now loads Music-Llama-Medium in 4-bit
-        
-        # Step 3: Neural MIDI Generation
-        update_task(task_id, {"message": "Neural Dreaming: Generating high-fidelity notes with MusicLlama..."})
-        raw_output = composer.generate_midi_sequence(prompt)
-        commands = composer.tokens_to_renoise_json(raw_output, song_length=song_length)
-        
-        # Step 4: Cleanup (Unload MusicLlama to free VRAM for next request's Conductor)
-        unload_midi_composer()
+        commands = final_midi_commands
         
         # 1. Structure first: BPM, Arrangement, Tracks
         # 2. Performance: Notes, Offs
