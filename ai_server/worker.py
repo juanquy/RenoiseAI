@@ -31,7 +31,6 @@ os.makedirs(GENERATED_FOLDER, exist_ok=True)
 os.makedirs(TASKS_FOLDER, exist_ok=True)
 
 midi_composer_model = None
-ai_conductor = AIConductor()
 
 
 def get_midi_composer():
@@ -141,6 +140,7 @@ def run_compose_native_midi_bg(task):
         
         prompt = task["prompt"]
         song_length = task.get("song_length", 16)
+        instruments = task.get("instruments", [])
         
         # Hardwired Advanced Electronic Music Template (replaces Ollama Conductor)
         s_len = max(song_length, 16)
@@ -248,9 +248,22 @@ def run_compose_native_midi_bg(task):
                 ordered_commands.append(c)
         
         # Priority 2: Notes
+        bulk_notes = []
         for c in all_raw_commands:
             if c.get("type") in ["set_note", "note_off"]:
-                ordered_commands.append(c)
+                # N|track|pattern|line|note|instrument|volume
+                # O|track|pattern|line
+                if c.get("type") == "set_note":
+                    note_str = f"N|{c['track']}|{c.get('pattern', 0)}|{c['line']}|{c['note']}|{c.get('instrument', c['track'])}|{c.get('volume', '7F')}"
+                else:
+                    note_str = f"O|{c['track']}|{c.get('pattern', 0)}|{c['line']}"
+                bulk_notes.append(note_str)
+        
+        if bulk_notes:
+            ordered_commands.append({
+                "type": "bulk_notes",
+                "data": "\n".join(bulk_notes)
+            })
         
         # Priority 3: Everything else (Lua, automation)
         for c in all_raw_commands:

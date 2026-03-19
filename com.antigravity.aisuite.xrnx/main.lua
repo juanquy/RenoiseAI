@@ -450,16 +450,48 @@ local function compose_with_ai()
              if data.task_id then
                 poll_task_status(data.task_id, function(final_data)
                    if final_data.commands and #final_data.commands > 0 then
-                      local total = #final_data.commands
+                      local all_lines = {}
+                      for _, cmd in ipairs(final_data.commands) do
+                        if cmd.type == "bulk_notes" and cmd.data then
+                           for line in string.gmatch(cmd.data, "[^\r\n]+") do
+                             table.insert(all_lines, line)
+                           end
+                        else
+                           local ex_ok, err = pcall(execute_command, cmd)
+                           if not ex_ok then print("[AI Executor Error]:", err) end
+                        end
+                      end
+                      
+                      local total = #all_lines
+                      if total == 0 then
+                         renoise.app():show_status("AI Suite: Generation Complete! (No notes in pattern)")
+                         response_list:add_line("[Neural Engine]: Setup complete.")
+                         return
+                      end
+                      
                       local count = 0
-                      local chunk_size = 300
+                      local chunk_size = 500
                       local idx = 1
                       
                       local function process_chunk()
                         local end_idx = math.min(idx + chunk_size - 1, total)
                         for i = idx, end_idx do
-                          local ex_ok, err = pcall(execute_command, final_data.commands[i])
-                          if not ex_ok then print("[AI Executor Error]:", err) end
+                          local line = all_lines[i]
+                          local parts = {}
+                          for p in string.gmatch(line, "[^|]+") do table.insert(parts, p) end
+                          
+                          if parts[1] == "N" and #parts >= 7 then
+                            local subdict = {
+                              type = "set_note", track = tonumber(parts[2]), pattern = tonumber(parts[3]),
+                              line = tonumber(parts[4]), note = parts[5], instrument = tonumber(parts[6]), volume = parts[7]
+                            }
+                            pcall(execute_command, subdict)
+                          elseif parts[1] == "O" and #parts >= 4 then
+                            local subdict = {
+                              type = "note_off", track = tonumber(parts[2]), pattern = tonumber(parts[3]), line = tonumber(parts[4])
+                            }
+                            pcall(execute_command, subdict)
+                          end
                           count = count + 1
                         end
                         idx = end_idx + 1

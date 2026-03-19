@@ -1,5 +1,0 @@
-Traceback (most recent call last):
-  File "/Volumes/Audio/Dev/RenoiseAI-master/ai_server/worker.py", line 34, in <module>
-    ai_conductor = AIConductor()
-                   ^^^^^^^^^^^
-NameError: name 'AIConductor' is not defined
