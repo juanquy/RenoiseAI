@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RenoiseScriptingTool doc_version="3">
+  <ApiVersion>6.1</ApiVersion>
+  <Name>Push 1 for Renoise</Name>
+  <Id>com.antigravity.push1</Id>
+  <Version>0.3.0</Version>
+  <Author>Antigravity / juanquy</Author>
+  <Description>Full Ableton Push 1 integration for Renoise. 4-line display, Scale/Step modes, per-track LEDs, AI link.</Description>
+  <Homepage></Homepage>
+  <Platform>Windows, Mac, Linux</Platform>
+</RenoiseScriptingTool>

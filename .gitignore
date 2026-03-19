@@ -1,0 +1,32 @@
+# Audio/Media
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# Renoise Tool Packages
+# *.xrnx
+!Push1_for_Renoise.xrnx
+*.xrns
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# AI Server specific
+ai_server/tasks/*.json
+ai_server/tasks/*.wav
+ai_server/uploads/*
+ai_server/generated/*
+# OS/IDEs
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.tmp
+temp_res_*
+temp_err_*
+temp_done_*
