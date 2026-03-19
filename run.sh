@@ -57,12 +57,12 @@ start_server() {
 
 stop_server() {
     echo -e "${YELLOW}Shutting down AI processes...${NC}"
-    if pgrep -f "python3.*app.py" > /dev/null; then
-        pkill -f "python3.*app.py"
+    if pgrep -f "app.py" > /dev/null; then
+        pkill -f "app.py"
         echo -e "${GREEN}✓ Stopped Flask API.${NC}"
     fi
-    if pgrep -f "python3.*worker.py" > /dev/null; then
-        pkill -f "python3.*worker.py"
+    if pgrep -f "worker.py" > /dev/null; then
+        pkill -f "worker.py"
         echo -e "${GREEN}✓ Stopped Neural Worker.${NC}"
     fi
 }

@@ -126,7 +126,7 @@ def compose_native_midi():
     task_id = f"task_midi_{int(time.time())}"
     task_data = {
         "status": "pending",
-        "message": "Queued for Native MIDI Specialized LLM...",
+        "message": "Queued for Text2midi Neural Engine...",
         "stems": {},
         "notes": {},
         "error": "",

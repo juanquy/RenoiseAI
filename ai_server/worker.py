@@ -20,8 +20,6 @@ sys.modules['xformers'] = MagicMock()
 sys.modules['xformers.ops'] = MagicMock()
 
 
-from conductor import AIConductor
-
 from midi_composer import MIDIComposer
 
 UPLOAD_FOLDER = 'uploads'
@@ -139,16 +137,33 @@ def run_transcribe_bg(task):
 def run_compose_native_midi_bg(task):
     task_id = task["task_id"]
     try:
-        update_task(task_id, {"message": "Conductor Planning: Analyzing musical structure..."})
-        conductor = ai_conductor
+        update_task(task_id, {"message": "Neural Planning: Injecting Advanced Electronic Blueprint..."})
         
         prompt = task["prompt"]
         song_length = task.get("song_length", 16)
         
-        # Step 1: Conductor Planning (Using Gemma-3 via Ollama)
-        instruments = task.get("instruments", [])
-        plan = conductor.orchestrate(prompt, song_length=song_length, instruments=instruments)
-        
+        # Hardwired Advanced Electronic Music Template (replaces Ollama Conductor)
+        s_len = max(song_length, 16)
+        plan = {
+            "sections": [
+                {"name": "Intro", "start_pattern": 0, "end_pattern": (s_len//4) - 1, "description": "Atmospheric intro"},
+                {"name": "Build", "start_pattern": (s_len//4), "end_pattern": (s_len//2) - 1, "description": "Rising tension, snares"},
+                {"name": "Drop", "start_pattern": (s_len//2), "end_pattern": (3*s_len//4) - 1, "description": "Full energy, heavy bass"},
+                {"name": "Outro", "start_pattern": (3*s_len//4), "end_pattern": s_len - 1, "description": "Fading out, minimal drums"}
+            ],
+            "commands": [
+                {"type": "init_arrangement", "patterns": s_len},
+                {"type": "add_track", "track": 0, "name": "Hammer Kick"},
+                {"type": "add_track", "track": 1, "name": "Sub Bass"},
+                {"type": "add_track", "track": 2, "name": "Mid Bass (Reese)"},
+                {"type": "add_track", "track": 3, "name": "High Hats"},
+                {"type": "add_track", "track": 4, "name": "Snare / Clap"},
+                {"type": "add_track", "track": 5, "name": "Percussion"},
+                {"type": "add_track", "track": 6, "name": "Atmospheric Pads"},
+                {"type": "add_track", "track": 7, "name": "Lead Synth / Arp"}
+            ]
+        }
+
         # Step 2: Neural MIDI Dreaming (Multi-Section / Multi-Track)
         final_midi_commands = []
         if plan and "sections" in plan and "commands" in plan:

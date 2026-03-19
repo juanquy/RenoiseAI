@@ -6,9 +6,7 @@ local json = require "json"
 
 local options = renoise.Document.create("ScriptingToolPreferences") {
   server_url = "http://127.0.0.1:5055",
-  api_key = "my_super_secret_proxmox_key",
-  ollama_url = "http://127.0.0.1:11434/api/chat",
-  ollama_model = "llama3.1"
+  api_key = "my_super_secret_proxmox_key"
 }
 
 renoise.tool().preferences = options
@@ -429,7 +427,6 @@ local function compose_with_ai()
     end
 
     local payload = {
-      model = options.ollama_model.value,
       messages = chat_history,
       stream = false,
       format = "json",
@@ -439,26 +436,17 @@ local function compose_with_ai()
     
     local json_body = json.encode(payload)
     
-    renoise.app():show_status("AI Suite: AI is composing your electronic sequence...")
+    renoise.app():show_status("AI Suite: Neural Engine is dreaming up a track...")
     
-    local is_native_midi = vb.views.use_native_midi.value
-    local target_url = is_native_midi and (options.server_url.value .. "/compose_native_midi") or options.ollama_url.value
+    local target_url = options.server_url.value .. "/compose_native_midi"
     
     renoise_http_async(target_url, "POST", json_body, true, function(res)
-      renoise.app():show_status("AI Suite: Parsing AI tracker commands...")
+      renoise.app():show_status("AI Suite: Parsing Neural MIDI commands...")
       if res and res ~= "" then
         local ok, data = pcall(json.decode, res)
         if ok and data then
-          -- Handle both Ollama and Native MIDI response styles
-          local ai_text = ""
-          if data.message and data.message.content then
-             ai_text = data.message.content
-             response_list:add_line("[AI Assistant (Text Mode)]:")
-             response_list:add_line(ai_text)
-             parse_and_execute_json(ai_text)
-          elseif data.commands or (data.status == "pending" and data.task_id) then
-             -- This is our specialized native model (async)
-             response_list:add_line("[AI Expert (MIDI Mode)]: Sequence requested. Processing on GPU...")
+          if data.commands or (data.status == "pending" and data.task_id) then
+             response_list:add_line("[Neural Engine]: Sequence requested. Processing on GPU...")
              if data.task_id then
                 poll_task_status(data.task_id, function(final_data)
                    if final_data.commands and #final_data.commands > 0 then
@@ -467,24 +455,20 @@ local function compose_with_ai()
                         execute_command(cmd)
                         count = count + 1
                       end
-                      response_list:add_line(string.format("[AI Expert]: Generated %d commands. Native MIDI Sequence applied!", count))
+                      response_list:add_line(string.format("[Neural Engine]: Generated %d commands. Arrangement applied!", count))
                    else
-                      response_list:add_line("[AI Expert]: Error: 0 valid notes returned. The AI fell back to plain text instead of Tracker code.")
+                      response_list:add_line("[Neural Engine]: Error: 0 valid notes returned.")
                    end
                 end)
              end
           else
             response_list:add_line("[ERR]: Unknown response format.")
           end
-          
-          if ai_text ~= "" then
-            table.insert(chat_history, { role = "assistant", content = ai_text })
-          end
         else
           response_list:add_line("[ERR]: Invalid JSON received.")
         end
       else
-        response_list:add_line("[ERR]: No response. Ensure the server is running.")
+        response_list:add_line("[ERR]: No response. Ensure the server is running on Port 5055.")
       end
       response_list:scroll_to_last_line()
     end)
@@ -551,10 +535,6 @@ local function compose_with_ai()
     
     vb:row {
       spacing = 15,
-      vb:checkbox { id = "use_native_midi", value = true },
-      vb:text { text = "Route to Neural Engine Backend (MPS)", font = "bold" },
-      
-      vb:text { text = "  |  ", font = "bold" },
       vb:text { text = "📏 Setup Patterns:", font = "bold" },
       vb:popup {
         id = "song_length_selector",
