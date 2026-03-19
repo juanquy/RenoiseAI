@@ -30,3 +30,9 @@ ai_server/generated/*
 temp_res_*
 temp_err_*
 temp_done_*
+
+# AI Server (Mac Studio specific)
+ai_server/models/
+ai_server/venv_mac/
+*.log
+generated/

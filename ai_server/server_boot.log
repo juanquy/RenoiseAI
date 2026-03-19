@@ -1,12 +1,4 @@
-[2026-03-15 21:15:25 -0500] [56751] [INFO] Starting gunicorn 25.1.0
-[2026-03-15 21:15:25 -0500] [56751] [INFO] Listening at: http://0.0.0.0:5000 (56751)
-[2026-03-15 21:15:25 -0500] [56751] [INFO] Using worker: sync
-[2026-03-15 21:15:25 -0500] [56751] [INFO] Control socket listening at /home/juanquy/dev/Renoise AI Plugin/ai_server/gunicorn.ctl
-[2026-03-15 21:15:25 -0500] [56754] [INFO] Booting worker with pid: 56754
-[2026-03-15 21:15:26 -0500] [56755] [INFO] Booting worker with pid: 56755
-[2026-03-15 22:37:25 -0500] [56754] [INFO] Worker exiting (pid: 56754)
-[2026-03-15 22:37:25 -0500] [56755] [INFO] Worker exiting (pid: 56755)
-[2026-03-15 22:37:25 -0500] [56751] [INFO] Handling signal: term
-[2026-03-15 22:37:25 -0500] [56751] [INFO] Worker (pid:56754) was sent SIGTERM!
-[2026-03-15 22:37:25 -0500] [56751] [INFO] Worker (pid:56755) was sent SIGTERM!
-[2026-03-15 22:37:25 -0500] [56751] [INFO] Shutting down: Master
+Traceback (most recent call last):
+  File "/Volumes/Audio/Dev/RenoiseAI-master/ai_server/app.py", line 1, in <module>
+    from flask import Flask, request, jsonify, send_file
+ModuleNotFoundError: No module named 'flask'

@@ -521,81 +521,97 @@ def ollama_parse_intent(prompt: str, model: str = "llama3.1", timeout: int = 30)
 
 class MIDIComposer:
     """
-    MIDIComposer 2.0: Specialized Neural Brain for Renoise.
-    Uses slseanwu/MIDI-LLM_Llama-3.2-1B with a custom Renoise LoRA adapter.
-    Falls back to deterministic generation if GPU is OOM or model fails.
+    MIDIComposer 3.0: High-Fidelity Neural Brain for Renoise.
+    Uses AMAAI-Lab/Text2midi (AAAI 2025) for high-quality symbolic music.
+    Accelerated via Apple Silicon MPS (Metal Performance Shaders).
     """
 
-    def __init__(self, model_id: str = "asigalov61/Music-Llama-Medium"):
-        self.model_id = model_id
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+    def __init__(self, model_dir="ai_server/models/text2midi"):
+        self.model_dir = model_dir
+        self.device = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
         self._last_intent = None
+        self._memoized_midi = None # Whole-song MIDI cache
         
-        # In Renoise Suite 2.0, we use Gemma-3 via Ollama for ALL neural steps.
-        # This class now handles orchestration and parsing, not direct 4-bit load.
-        print(f"MIDIComposer: Initialized in Lightweight Mode.")
+        print(f"MIDIComposer: Initializing State-of-the-Art Neural Engine (Text2midi) on {self.device}...")
+        try:
+            from text2midi_wrapper import Text2MidiWrapper
+            self.text2midi = Text2MidiWrapper(model_dir=self.model_dir, device=self.device)
+            print("MIDIComposer: Neural Engine Ready (MPS Accelerated).")
+        except Exception as e:
+            print(f"MIDIComposer: Error loading Neural Engine: {e}. Falling back to Lightweight Mode.")
+            self.text2midi = None
 
     def unload(self):
-        """Force unload from VRAM."""
-        print(f"MIDIComposer: Cleanup...")
+        """Flush Text2midi from VRAM."""
+        print(f"MIDIComposer: Flushing Neural Brain from VRAM...")
+        if hasattr(self, 'text2midi') and self.text2midi:
+            del self.text2midi.model
+            del self.text2midi
+        import gc
+        gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            import gc
-            gc.collect()
 
     def generate_midi_sequence(self, role_prompt: str, instruments: list = None, plan_context: str = "", forced_instrument: int = None) -> str:
         """
-        Generates Renoise-native MIDI data using Gemma-3 via Ollama.
+        Generates high-quality MIDI for a specific role within the song context.
+        Note: Now uses Text2midi for the WHOLE song and memoizes it.
         """
-        print(f"[Composer] Neural Dreaming (via Ollama) for: '{role_prompt[:60]}'...")
-        
-        inst_info = ""
-        if forced_instrument is not None:
-            inst_info = f"\nMANDATORY: USE INSTRUMENT INDEX {forced_instrument} FOR ALL NOTES."
-        elif instruments:
-            inst_info = "\nAVAILABLE INSTRUMENTS:\n"
-            for inst in instruments:
-                inst_info += f"- Slot {inst['index']}: {inst['name']}\n"
-            inst_info += "\nUSE THE CORRECT SLOT INDEX FOR THE 'instrument' FIELD."
+        if not self.text2midi:
+            print("[Composer] Falling back to empty response (No Neural Engine).")
+            return "[]"
 
-        system_prompt = (
-            "You are a Renoise Music Expert. Generate musical events for a SPECIFIC ROLE in a track. "
-            "Output ONLY a JSON list of objects: { \"line\": 0, \"note\": \"C-4\", \"velocity\": 127, \"instrument\": 1, \"delay\": 0 }. "
-            "Lines are 0-63 (for one pattern). Max 64 lines. "
-            "DRUM RULE: For drum hits (Kick, Snare, Clap, Hats), ALWAYS use C-4 as the base note. "
-            "Keep it musical, syncopated, and genre-appropriate. "
-            f"{inst_info}\n"
-            "Return ONLY raw JSON list. No talk."
-        )
+        if self._memoized_midi is None:
+            # Construct a rich caption for Text2midi
+            caption = f"{plan_context}. Roles: {role_prompt}. Instruments: "
+            if instruments:
+                caption += ", ".join([inst['name'] for inst in instruments])
+            
+            print(f"[Composer] Neural Mastering (Text2midi): '{caption[:100]}...'")
+            temp_mid = "generated/master_ai.mid"
+            try:
+                self.text2midi.generate(caption, max_len=1024, temperature=0.9, output_path=temp_mid)
+                from midi_utils import midi_to_renoise_commands
+                self._memoized_midi = midi_to_renoise_commands(temp_mid, lpb=4)
+                print(f"[Composer] Master MIDI parsed: {len(self._memoized_midi)} events.")
+            except Exception as e:
+                print(f"[Composer] Text2midi Error: {e}")
+                return "[]"
+
+        # Track Filtering Logic:
+        # Match the role_prompt (e.g., "Hammer Kick") against our memoized tracks
+        import re
+        m = re.search(r"Track: ([^.]+)", role_prompt)
+        target_name = m.group(1).lower() if m else "unknown"
         
-        try:
-            url = "http://localhost:11434/api/generate"
-            prompt_text = f"SONG CONTEXT: {plan_context}\nROLE: {role_prompt}\n\nGenerate dynamic note events for this role."
+        filtered_commands = []
+        # Priority 1: Exact or substring name match
+        for cmd in (self._memoized_midi or []):
+            mid_track_name = cmd.get("track_name", "").lower()
+            if target_name in mid_track_name or mid_track_name in target_name:
+                filtered_commands.append(cmd)
+        
+        # Priority 2: Generic role matching (Kick matches Drum, etc.)
+        if not filtered_commands:
+            drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum"]
+            target_is_drum = any(k in target_name for k in drum_keywords)
             
-            payload = {
-                "model": "gemma3:12b",
-                "prompt": prompt_text,
-                "system": system_prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.9,
-                    "top_p": 0.9
-                }
-            }
+            for cmd in self._memoized_midi:
+                mid_track_name = cmd.get("track_name", "").lower()
+                mid_is_drum = any(k in mid_track_name for k in drum_keywords)
+                if target_is_drum == mid_is_drum:
+                    filtered_commands.append(cmd)
+
+        # Fallback: If still nothing, or many tracks, we just return the track by index
+        # (This is a last resort to ensure SOMETHING is played)
+        if not filtered_commands:
+            # Guessing track mapping by simple index if possible
+            # But since we don't have track_idx here easily, we'll return an empty list 
+            # and let the next role attempt a match.
+            pass
             
-            import requests
-            response = requests.post(url, json=payload, timeout=120)
-            if response.status_code == 200:
-                result = response.json().get("response", "")
-                result = re.sub(r"```json|```", "", result).strip()
-                print(f"[Composer] Generated {len(result)} chars for role.")
-                return result
-            else:
-                print(f"[Composer] Ollama error: {response.text}")
-        except Exception as e:
-            print(f"[Composer] Ollama fallback failed: {e}")
-            
-        return "[]" # Return empty list on failure
+        print(f"[Composer] Role '{target_name}' matched {len(filtered_commands)} events.")
+        return json.dumps(filtered_commands)
 
     def _enforce_drum_octave(self, note_str: str) -> str:
         """

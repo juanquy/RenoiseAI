@@ -520,12 +520,22 @@ local function compose_with_ai()
   }
 
   local dialog_content = vb:column {
-    margin = 10,
-    spacing = 10,
-    vb:text { text = "AI Companion (Ollama LLM). Describe what you want the sequencer to do:" },
-    response_list,
+    margin = 15,
+    spacing = 12,
+    
+    -- Header Section
     vb:row {
-      vb:text { text = "💡 Prompt Gallery:", font = "bold" },
+      vb:text { text = "🧠 Neural MIDI Architect (Text2midi AAAI 2025)", font = "big", style = "strong" }
+    },
+    vb:text { text = "Mac Studio MPS Edition. Describe your desired arrangement below:", font = "italic" },
+    
+    -- Conversation Box
+    response_list,
+    
+    -- Options Section
+    vb:row {
+      spacing = 8,
+      vb:text { text = "💡 Inspiration:", font = "bold" },
       vb:popup {
         id = "gallery_selector",
         items = prompt_gallery,
@@ -538,40 +548,45 @@ local function compose_with_ai()
         end
       }
     },
+    
     vb:row {
+      spacing = 15,
       vb:checkbox { id = "use_native_midi", value = true },
-      vb:text { text = "Use Native MIDI Expert Model (Llama 3.2-1B)", font = "italic" }
-    },
-    vb:row {
-      vb:text { text = "📏 Song Length (Patterns):", font = "bold" },
+      vb:text { text = "Route to Neural Engine Backend (MPS)", font = "bold" },
+      
+      vb:text { text = "  |  ", font = "bold" },
+      vb:text { text = "📏 Setup Patterns:", font = "bold" },
       vb:popup {
         id = "song_length_selector",
         items = {"4", "8", "12", "16", "24", "32", "48", "64"},
         value = 4 -- 16 patterns
       }
     },
+    
+    -- Input Section
     vb:row {
-      spacing = 10,
+      spacing = 15,
       vb:column {
         spacing = 5,
-        vb:text { text = "System Prompt (Describe the track):", font = "bold" },
+        vb:text { text = "Director's Prompt:", font = "bold" },
         prompt_input,
-        vb:text { text = "Lyrics / Vocal Ideas:", font = "bold" },
+        vb:text { text = "Additional Notes / Concepts:", font = "bold" },
         lyrics_input
       },
       vb:column {
         margin = 15,
         vb:button {
-          text = "Send Request",
-          width = 90,
+          text = "Generate\nSequence",
+          width = 110,
           height = 130,
+          color = {20, 150, 50}, -- Renoise custom button color support
           notifier = send_chat
         }
       }
     }
   }
   
-  renoise.app():show_custom_dialog("Compose with AI Tracking", dialog_content)
+  renoise.app():show_custom_dialog("AI Suite: Neural MIDI Architect", dialog_content)
 end
 
 --------------------------------------------------------------------------------

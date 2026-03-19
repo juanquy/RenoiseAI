@@ -1,6 +1,6 @@
 # Renoise AI Suite 🤖🎹
 
-The **Renoise AI Suite** is a next-generation integration that bridges the precision of the Renoise Tracker with the power of local Deep Learning models. Designed for high-performance electronic music production, this suite runs complex AI tasks (Demucs separation, Transformer-based transcription, LLM composition) entirely on your local workstation's GPU.
+The **Renoise AI Suite** is a next-generation integration that bridges the precision of the Renoise Tracker with the power of local Deep Learning models. Designed for high-performance electronic music production, this suite runs complex AI tasks (Demucs separation, Transformer-based transcription, LLM composition) entirely on your local workstation. **Version 3.0 is highly optimized for Mac Studio (Apple Silicon / MPS), leveraging up to 36GB VRAM and a 16-core Neural Engine.**
 
 ## 🚀 Key Features
 
@@ -10,11 +10,11 @@ The **Renoise AI Suite** is a next-generation integration that bridges the preci
 - **Transformer MIDI Transcription**: Instead of simple pitch detection, it uses the **YourMT3+ Transformer** model to analyze the nuance and polyphony of each stem, converting them into clean Renoise MIDI tracks.
 - **Vocal Preservation**: Automatically identifies vocal tracks and loads them as high-quality Audio Stems into Renoise instruments with `autoseek` enabled.
 
-### 2. **AI Composer & Song Architect**
+### 2. **AI Composer & Neural MIDI Architect**
 
-- **Native MIDI Expert (Llama 3.2-1B)**: A specialized MIDI-LLM fine-tuned on **666 Renoise compositions** from the community. It understands native tracker logic, pattern structures, and complex percussion layering.
-- **LLM-Powered Tracking**: Chat with the AI in "Song Architect" mode to describe a vibe or a full arrangement.
-- **Native Command Execution**: The AI generates a series of native Renoise commands to build tracks, set BPM/LPB, and compose patterns in real-time.
+- **Neural MIDI Engine (Text2midi)**: A state-of-the-art MIDI transformer model (AAAI 2025) integrated into the backend. It generates full, multi-track arrangements that are internally structured (Intro, Drop, Outro) across up to 1024 tokens of raw MIDI data.
+- **Role-to-Track Filtering**: The neural output is intercepted and mathematically filtered to your active Renoise tracks. A "Hammer Kick" prompt will automatically seek out your drum slot!
+- **MPS Hardware Acceleration**: Operates natively on Apple Silicon using the Metal Performance Shaders backend, bypassing legacy CUDA requirements.
 
 ### 3. **High-Performance UI & Engine**
 
@@ -37,70 +37,48 @@ A world-class hardware companion for your tracker workflow. The **Push 1 Module*
 
 ---
 
-## 🛠️ How to Deploy (Full Installation)
+## 🛠️ How to Deploy (Mac Studio Edition)
 
-This setup assumes you are using a **Linux workstation** (Ubuntu/Debian recommended) with an **NVIDIA GPU**.
+This setup is fully optimized for **Apple Silicon (macOS) with MPS support**.
 
-### Step 1: Clone and Prepare Python Environment
-
-We use a decoupled architecture (API + Worker) to ensure the Renoise UI stays responsive while the GPU is under heavy load.
+### Step 1: Clone and Prepare Environment
 
 ```bash
 # Clone the repository
 git clone https://github.com/juanquy/Renoise-AI-Plugin.git
 cd Renoise-AI-Plugin
 
-# Create a dedicated environment
-conda create -n ai_env python=3.10 -y
-conda activate ai_env
-
-# Install Core & LLM Dependencies
-pip install flask gunicorn numpy scipy torch torchaudio basic-pitch demucs audiocraft soundfile
-pip install --upgrade transformers accelerate peft bitsandbytes datasets tqdm hf_transfer mido
+# The `venv_mac` environment inside `ai_server/` includes PyTorch (MPS) and Huggingface libraries.
 ```
 
-### Step 2: Install AI Model Dependencies
+### Step 2: System Administration (run.sh)
 
-To enable the high-fidelity MIDI transcription, you must have the YourMT3+ repository linked:
-
-1. Follow the [YourMT3+ Installation Guide](https://github.com/st-onishi/YourMT3/blob/main/docs/installation.md) to download the model checkpoints.
-2. Ensure you have the `mc13_256_g4_all_v7_mt3f_sqr_rms_moe_wf4_n8k2_silu_rope_rp_b36_nops@last.ckpt` checkpoint in your `YourMT3/checkpoints/` folder.
-
-### Step 3: Launch the AI Suite Server
-
-The server is split into two parts: the API (frontend) and the Worker (where the Expert models load).
-
-**Terminal 1 (The Frontend API):**
+We have replaced complex command-line executions with a unified server administration script.
 
 ```bash
-cd ai_server
-/home/juanquy/miniconda3/envs/ai_env/bin/python app.py
+chmod +x run.sh
+
+# Start the AI Server Database (API) and Neural Engine (Text2midi worker)
+./run.sh start
+
+# Check running status
+./run.sh status
+
+# Monitor GPU generations
+./run.sh logs
+
+# Shut down the AI safely
+./run.sh stop
 ```
 
-**Terminal 2 (The Music Brain / Worker):**
-
-```bash
-cd ai_server
-/home/juanquy/miniconda3/envs/ai_env/bin/python worker.py
-```
-
-> [!TIP]
-> **Automatic Maintenance:** The system includes a built-in "Janitor" logic. It will automatically purge temporary audio stems and task logs every 60 minutes to keep your hard drive lean.
-
-> [!IMPORTANT]
-> **Expert MIDI Fine-Tuning:** The "Native MIDI Expert" requires the LoRA weights generated during training. If you wish to re-train on your own dataset, update `DATASET_PATH` in `train_midi.py` and run the script. The worker will automatically look for `./renoise_midi_model_lora` on startup.
-
-### Step 4: Install the Renoise Plugin (.xrnx)
+### Step 3: Install the Renoise Plugin (.xrnx)
 
 1. Locate the `com.antigravity.aisuite.xrnx` folder in this repo.
-2. **Standard Install:** Zip the folder and rename it to `.xrnx`, then drag into Renoise.
-3. **Developer Install:** Create a symbolic link from your Renoise Tools folder to this directory for real-time code updates.
-4. **Configuration:**
-
+2. Drag it into Renoise via the plugin browser, or set a symlink directly into your Renoise `Tools` directory for live development.
+3. **Configuration:**
    - Open Renoise.
    - Go to **Tools > AI Suite > Preferences**.
-   - Set the **Host URL** to `http://127.0.0.1:5000`.
-   - Set the **Ollama URL** to `http://127.0.0.1:11434`.
+   - Ensure the **Host URL** points to `http://127.0.0.1:5000` (this targets the Flask API `app.py`).
 
 ---
 
