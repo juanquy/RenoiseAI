@@ -450,12 +450,31 @@ local function compose_with_ai()
              if data.task_id then
                 poll_task_status(data.task_id, function(final_data)
                    if final_data.commands and #final_data.commands > 0 then
+                      local total = #final_data.commands
                       local count = 0
-                      for _, cmd in ipairs(final_data.commands) do
-                        execute_command(cmd)
-                        count = count + 1
+                      local chunk_size = 300
+                      local idx = 1
+                      
+                      local function process_chunk()
+                        local end_idx = math.min(idx + chunk_size - 1, total)
+                        for i = idx, end_idx do
+                          local ex_ok, err = pcall(execute_command, final_data.commands[i])
+                          if not ex_ok then print("[AI Executor Error]:", err) end
+                          count = count + 1
+                        end
+                        idx = end_idx + 1
+                        
+                        if idx <= total then
+                          renoise.app():show_status(string.format("AI Suite: Injecting Neural MIDI... %d%%", math.floor((count/total)*100)))
+                        else
+                          renoise.tool():remove_timer(process_chunk)
+                          renoise.app():show_status("AI Suite: Generation Complete!")
+                          response_list:add_line(string.format("[Neural Engine]: Generated %d commands. Arrangement applied!", count))
+                          response_list:scroll_to_last_line()
+                        end
                       end
-                      response_list:add_line(string.format("[Neural Engine]: Generated %d commands. Arrangement applied!", count))
+                      
+                      renoise.tool():add_timer(process_chunk, 10)
                    else
                       response_list:add_line("[Neural Engine]: Error: 0 valid notes returned.")
                    end

@@ -6,3 +6,5 @@ Starting lightweight Flask API.
  * Running on http://127.0.0.1:5055
  * Running on http://192.168.200.125:5055
 [33mPress CTRL+C to quit[0m
+127.0.0.1 - - [19/Mar/2026 02:21:27] "GET /task_status/task_midi_1773904810 HTTP/1.1" 200 -
+127.0.0.1 - - [19/Mar/2026 02:21:45] "GET /task_status/task_midi_1773904810 HTTP/1.1" 200 -
