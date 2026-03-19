@@ -78,7 +78,7 @@ chmod +x run.sh
 3. **Configuration:**
    - Open Renoise.
    - Go to **Tools > AI Suite > Preferences**.
-   - Ensure the **Host URL** points to `http://127.0.0.1:5000` (this targets the Flask API `app.py`).
+   - Ensure the **Host URL** points to `http://127.0.0.1:5055` (this targets the Flask API `app.py`).
 
 ---
 

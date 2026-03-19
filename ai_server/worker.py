@@ -8,7 +8,12 @@ import traceback
 import torch
 import torchaudio
 import gc
-from mt3_transcriber import load_mt3_model, transcribe_audio_to_notes
+try:
+    from mt3_transcriber import load_mt3_model, transcribe_audio_to_notes
+except ImportError:
+    load_mt3_model = None
+    transcribe_audio_to_notes = None
+
 import sys
 from unittest.mock import MagicMock
 sys.modules['xformers'] = MagicMock()

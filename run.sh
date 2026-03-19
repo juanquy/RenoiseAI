@@ -43,7 +43,7 @@ start_server() {
     # Start the Flask API Bridge
     nohup $VENV_PYTHON app.py > server_boot.log 2>&1 &
     API_PID=$!
-    echo -e "${GREEN}✓ Flask API started (PID $API_PID)${NC} on port 5000."
+    echo -e "${GREEN}✓ Flask API started (PID $API_PID)${NC} on port 5055."
     
     # Start the Text2midi MPS Worker
     export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES

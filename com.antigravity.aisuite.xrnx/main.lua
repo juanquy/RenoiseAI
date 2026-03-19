@@ -5,7 +5,7 @@
 local json = require "json"
 
 local options = renoise.Document.create("ScriptingToolPreferences") {
-  server_url = "http://127.0.0.1:5000",
+  server_url = "http://127.0.0.1:5055",
   api_key = "my_super_secret_proxmox_key",
   ollama_url = "http://127.0.0.1:11434/api/chat",
   ollama_model = "llama3.1"
