@@ -8,8 +8,8 @@ echo "📦 Packaging Renoise Tools..."
 find . -maxdepth 1 -name "*.xrnx" -type f -delete
 
 # 1. AI Suite
-echo "  - Building RenoiseAI_V2_Fixed.xrnx..."
-cd "com.antigravity.aisuite.xrnx" && zip -qr ../RenoiseAI_V2_Fixed.xrnx ./* && cd ..
+echo "  - Building AI_Suite_V3_MacStudio.xrnx..."
+cd "com.antigravity.aisuite.xrnx" && zip -qr ../AI_Suite_V3_MacStudio.xrnx ./* && cd ..
 
 # 2. Push 1 Integration
 echo "  - Building Push1_for_Renoise.xrnx..."

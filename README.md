@@ -160,8 +160,8 @@ A comprehensive guide to every button, mode, and optimization for the Push 1 har
 - `push-plugin.xrnx/`: The Push 1 Hardware Integration source code.
 - `ai_server/`: The Python backend (Flask API + Background Worker).
 - `docs/`: Technical documentation and API references.
-- `Push1_for_Renoise.xrnx`: Ready-to-install Push 1 package.
-- `RenoiseAI_V2_Fixed.xrnx`: Ready-to-install AI Suite package.
+- `Push1_for_Renoise.xrnx`: [Download Ready-to-install Push 1 package](https://github.com/juanquy/RenoiseAI/raw/main/Push1_for_Renoise.xrnx)
+- `AI_Suite_V3_MacStudio.xrnx`: [Download Ready-to-install AI Suite package](https://github.com/juanquy/RenoiseAI/raw/main/AI_Suite_V3_MacStudio.xrnx)
 
 ---
 

@@ -171,6 +171,7 @@ def run_compose_native_midi_bg(task):
             tracks_to_fill = [c for c in plan["commands"] if c.get("type") == "add_track"]
             
             composer = get_midi_composer()
+            composer.clear_cache()
             
             for section in sections:
                 sec_name = section.get("name", "Section")

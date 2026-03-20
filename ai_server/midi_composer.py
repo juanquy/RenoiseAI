@@ -106,12 +106,12 @@ def gen_kick(lines, lpb, pattern_id="kick_4otf"):
     beat = lpb
     step = beat if "half" not in str(pattern_id) else beat * 2
     for l in range(0, lines, step):
-        events.append((l, "C-1"))    # GM Kick
+        events.append((l, "C-4"))    # GM Kick (Octave 4)
         # Add a faint ghost kick 20% of the time for groove
         if random.random() > 0.8:
             ghost_l = l + (step // 2)
             if ghost_l < lines:
-                events.append((ghost_l, "C-1"))
+                events.append((ghost_l, "C-4"))
     return events
 
 def gen_snare(lines, lpb, pattern_id="snare"):
@@ -126,8 +126,8 @@ def gen_snare(lines, lpb, pattern_id="snare"):
                 if random.random() > 0.7:
                      ghost_l = l - (lpb // 2)
                      if ghost_l > 0:
-                         events.append((ghost_l, "D-1"))
-                events.append((l, "D-1"))  # GM Snare
+                         events.append((ghost_l, "D-4"))
+                events.append((l, "D-4"))  # GM Snare (Octave 4)
     return events
 
 def gen_clap(lines, lpb, pattern_id="clap"):
@@ -139,7 +139,7 @@ def gen_clap(lines, lpb, pattern_id="clap"):
         for beat in [1, 3]:
             l = bar_start + beat * lpb + offset
             if l < lines:
-                events.append((l, "C#1"))  # GM Clap
+                events.append((l, "C#4"))  # GM Clap (Octave 4)
     return events
 
 def gen_hihat(lines, lpb, pattern_id="hihat"):
@@ -149,12 +149,12 @@ def gen_hihat(lines, lpb, pattern_id="hihat"):
     for l in range(0, lines, step):
         # 90% chance of hi-hat (occasional missed hit for realism)
         if random.random() > 0.1:
-            events.append((l, "F#1"))    # GM Closed HH
+            events.append((l, "F#4"))    # GM Closed HH (Octave 4)
         # 15% chance of an extra rapid 16th note fill
         if random.random() > 0.85:
             fill_l = l + (step // 2)
             if fill_l < lines:
-                events.append((fill_l, "F#1"))
+                events.append((fill_l, "F#4"))
     return events
 
 def gen_open_hat(lines, lpb, pattern_id="open_hat"):
@@ -166,7 +166,7 @@ def gen_open_hat(lines, lpb, pattern_id="open_hat"):
         for beat in [0, 2]:
             l = bar_start + beat * lpb + off
             if l < lines:
-                events.append((l, "A#1"))  # GM Open HH
+                events.append((l, "A#4"))  # GM Open HH (Octave 4)
     return events
 
 def gen_bass(notes, lines, lpb, chord_prog, root, scale_name, pattern_id="bass_walk"):
@@ -540,6 +540,11 @@ class MIDIComposer:
         except Exception as e:
             print(f"MIDIComposer: Error loading Neural Engine: {e}. Falling back to Lightweight Mode.")
             self.text2midi = None
+
+    def clear_cache(self):
+        """Clear the memoized MIDI cache to allow for a new generation."""
+        print("[Composer] Clearing Neural MIDI cache for new generation.")
+        self._memoized_midi = None
 
     def unload(self):
         """Flush Text2midi from VRAM."""

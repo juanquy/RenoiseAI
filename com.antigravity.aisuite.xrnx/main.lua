@@ -213,16 +213,24 @@ local function execute_command(cmd)
     local target_inst_idx = cmd.instrument_index
     if target_inst_idx then
       -- Conductor already matched this to an existing instrument
-      -- Ensure the track is actually assigned to this instrument (Renoise tracks point to instruments)
-      -- Note: In Renoise, notes in the pattern have an instrument index. 
-      -- The track doesn't "own" an instrument strictly, but for AI we conceptually link them.
-      print(string.format("AI Suite: Mapping track %d to instrument %d", new_track_idx, target_inst_idx))
+      print(string.format("AI Suite: Mapping track %d to existing instrument %d", new_track_idx, target_inst_idx))
     else
-      -- Fallback: If no mapping provided, and we are adding a track, check if we should create a slot
+      -- Fallback: Ensure an instrument exists at this track's index and name it
       if new_track_idx > #song.instruments then
-        local inst = song:insert_instrument_at(new_track_idx)
-        inst.name = cmd.name or "AI Instrument"
+        for i = #song.instruments + 1, new_track_idx do
+          song:insert_instrument_at(i)
+        end
       end
+      
+      local inst = song:instrument(new_track_idx)
+      inst.name = cmd.name and ("AI: " .. cmd.name) or ("AI Instrument " .. new_track_idx)
+      
+      -- Ensure it has a sample slot so it can actually be played/heard
+      if #inst.samples == 0 then
+        inst:insert_sample_at(1)
+      end
+      
+      print(string.format("AI Suite: Initialized instrument %d as '%s'", new_track_idx, inst.name))
     end
     
   elseif cmd.type == "clear_track" then
@@ -503,6 +511,9 @@ local function compose_with_ai()
                           renoise.app():show_status("AI Suite: Generation Complete!")
                           response_list:add_line(string.format("[Neural Engine]: Generated %d commands. Arrangement applied!", count))
                           response_list:scroll_to_last_line()
+                          if ai_dialog and ai_dialog.visible then
+                            ai_dialog:close()
+                          end
                         end
                       end
                       
@@ -578,7 +589,6 @@ local function compose_with_ai()
         notifier = function(idx)
           if idx > 1 then
             prompt_input.text = prompt_gallery[idx]
-            send_chat()
           end
         end
       }
@@ -617,8 +627,16 @@ local function compose_with_ai()
     }
   }
   
-  renoise.app():show_custom_dialog("AI Suite: Neural MIDI Architect", dialog_content)
-end
+  local ai_dialog = renoise.app():show_custom_dialog("AI Suite: Neural MIDI Architect", dialog_content)
+
+  -- Store the original send_chat but add close logic to the callback chain
+  local original_send_chat = send_chat
+  send_chat = function()
+    original_send_chat()
+  end
+
+  -- We need to hook into the final completion signal to close the dialog
+  -- Note: process_chunk is used for note injection. We close when it finishes.
 
 --------------------------------------------------------------------------------
 -- Audio to Tracker (MIDI & Stems) Processing

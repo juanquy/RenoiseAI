@@ -70,13 +70,13 @@ stop_server() {
 check_status() {
     echo -e "${BLUE}System Status:${NC}"
     
-    if pgrep -f "python3.*app.py" > /dev/null; then
+    if pgrep -f "app.py" > /dev/null; then
         echo -e "Flask API Bridge:   ${GREEN}[RUNNING]${NC}"
     else
         echo -e "Flask API Bridge:   ${RED}[STOPPED]${NC}"
     fi
     
-    if pgrep -f "python3.*worker.py" > /dev/null; then
+    if pgrep -f "worker.py" > /dev/null; then
         echo -e "Text2midi Worker:   ${GREEN}[RUNNING]${NC}"
     else
         echo -e "Text2midi Worker:   ${RED}[STOPPED]${NC}"
