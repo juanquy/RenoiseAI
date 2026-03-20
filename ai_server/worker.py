@@ -40,6 +40,10 @@ def get_midi_composer():
         print("AI Suite WORKER: Loading Specialized Neural MIDI Engine (Llama 3.2-1B)...")
         try:
             midi_composer_model = MIDIComposer()
+            if midi_composer_model.text2midi:
+                # Signal to app.py that we are truly neural-capable
+                with open(os.path.join(TASKS_FOLDER, "models_ready.flag"), "w") as f:
+                    f.write(str(time.time()))
             print("AI Suite WORKER: Neural Engine Ready.")
         except Exception as e:
             print(f"AI Suite WORKER: Error loading MIDI engine: {e}")
@@ -284,45 +288,52 @@ def run_compose_native_midi_bg(task):
             "error": str(e)
         })
 
-print("AI Suite WORKER: Started listening for tasks...")
-while True:
-    try:
-        # Run cleanup every few iterations
-        if int(time.time()) % 300 == 0: # Every 5 minutes
-            cleanup_old_files()
+if __name__ == "__main__":
+    print(f"AI Suite WORKER: Booting... (CWD: {os.getcwd()})")
+    print(f"AI Suite WORKER: Python Path: {sys.path}")
+    
+    # Pre-load the composer to ensure everything is ready
+    get_midi_composer()
+    
+    print("AI Suite WORKER: Started listening for tasks...")
+    while True:
+        try:
+            # Run cleanup every few iterations
+            if int(time.time()) % 300 == 0: # Every 5 minutes
+                cleanup_old_files()
 
-        # Find any pending tasks
-        pending_files = glob.glob(os.path.join(TASKS_FOLDER, "*.json"))
-        pending_files.sort(key=os.path.getctime) # Oldest first
-        
-        for f in pending_files:
-            try:
-                with open(f, 'r') as file:
-                    task = json.load(file)
-            except Exception:
-                continue
-                
-            if task.get("status") == "pending":
-                update_task(task["task_id"], {"status": "processing"})
+            # Find any pending tasks
+            pending_files = glob.glob(os.path.join(TASKS_FOLDER, "*.json"))
+            pending_files.sort(key=os.path.getctime) # Oldest first
+            
+            for f in pending_files:
+                try:
+                    with open(f, 'r') as file:
+                        task = json.load(file)
+                except Exception:
+                    continue
+                    
+                if task.get("status") == "pending":
+                    update_task(task["task_id"], {"status": "processing"})
 
-                if task["type"] == "transcribe":
-                    run_transcribe_bg(task)
-                elif task["type"] == "compose_native_midi":
-                    run_compose_native_midi_bg(task)
-                else:
-                    print(f"Unknown task type: {task.get('type')}")
-                    update_task(task["task_id"], {"status": "error", "error": "Unknown task type"})
-                
-                # After any task, ensure a scrub
-                gc.collect()
-                torch.cuda.empty_cache()
-                
-    except Exception as e:
-        print(f"Worker main loop error: {e}")
-        
-    # Micro-scrub every loop iteration
-    if int(time.time()) % 60 == 0:
-         gc.collect()
-         torch.cuda.empty_cache()
+                    if task["type"] == "transcribe":
+                        run_transcribe_bg(task)
+                    elif task["type"] == "compose_native_midi":
+                        run_compose_native_midi_bg(task)
+                    else:
+                        print(f"Unknown task type: {task.get('type')}")
+                        update_task(task["task_id"], {"status": "error", "error": "Unknown task type"})
+                    
+                    # After any task, ensure a scrub
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    
+        except Exception as e:
+            print(f"Worker main loop error: {e}")
+            
+        # Micro-scrub every loop iteration
+        if int(time.time()) % 60 == 0:
+             gc.collect()
+             torch.cuda.empty_cache()
 
-    time.sleep(1)
+        time.sleep(1)

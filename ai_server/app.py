@@ -59,11 +59,15 @@ def task_status(task_id):
 
 @app.route('/status', methods=['GET'])
 def status():
+    # Use a flag file to determine if the neural engine is ready
+    flag_path = os.path.join(TASKS_FOLDER, "models_ready.flag")
+    is_neural = os.path.exists(flag_path)
+    
     return jsonify({
         "status": "running",
-        "message": "Renoise AI V2 Backend Ready (Decoupled Worker)",
+        "message": "Renoise AI V2 Backend Ready",
         "gpu_available": True,
-        "model_loaded": True, # Assume worker loads it
+        "neural_engine": is_neural,
         "auth_required": True
     })
 

@@ -10,7 +10,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "Text2midi_Repo"))
 from model.transformer_model import Transformer
 
 class Text2MidiWrapper:
-    def __init__(self, model_dir="ai_server/models/text2midi", device=None):
+    def __init__(self, model_dir=None, device=None):
+        if not model_dir:
+            model_dir = os.path.join(os.path.dirname(__file__), "models", "text2midi")
         self.model_dir = model_dir
         if device:
             self.device = device

@@ -377,6 +377,8 @@ end
 --------------------------------------------------------------------------------
 
 local function compose_with_ai()
+  local ai_dialog = nil
+  local song = renoise.song()
   local view = renoise.app().window
   local vb = renoise.ViewBuilder()
   
@@ -627,7 +629,7 @@ local function compose_with_ai()
     }
   }
   
-  local ai_dialog = renoise.app():show_custom_dialog("AI Suite: Neural MIDI Architect", dialog_content)
+  ai_dialog = renoise.app():show_custom_dialog("AI Suite: Neural MIDI Architect", dialog_content)
 
   -- Store the original send_chat but add close logic to the callback chain
   local original_send_chat = send_chat
@@ -637,6 +639,7 @@ local function compose_with_ai()
 
   -- We need to hook into the final completion signal to close the dialog
   -- Note: process_chunk is used for note injection. We close when it finishes.
+end
 
 --------------------------------------------------------------------------------
 -- Audio to Tracker (MIDI & Stems) Processing

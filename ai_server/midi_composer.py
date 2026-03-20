@@ -526,7 +526,9 @@ class MIDIComposer:
     Accelerated via Apple Silicon MPS (Metal Performance Shaders).
     """
 
-    def __init__(self, model_dir="ai_server/models/text2midi"):
+    def __init__(self, model_dir=None):
+        if not model_dir:
+            model_dir = os.path.join(os.path.dirname(__file__), "models", "text2midi")
         self.model_dir = model_dir
         self.device = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
         self._last_intent = None
@@ -590,30 +592,86 @@ class MIDIComposer:
         target_name = m.group(1).lower() if m else "unknown"
         
         filtered_commands = []
-        # Priority 1: Exact or substring name match
-        for cmd in (self._memoized_midi or []):
-            mid_track_name = cmd.get("track_name", "").lower()
-            if target_name in mid_track_name or mid_track_name in target_name:
-                filtered_commands.append(cmd)
         
-        # Priority 2: Generic role matching (Kick matches Drum, etc.)
-        if not filtered_commands:
-            drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum"]
-            target_is_drum = any(k in target_name for k in drum_keywords)
+        # Get all unique tracks from the generated MIDI
+        unique_tracks = {}
+        for cmd in (self._memoized_midi or []):
+            t_name = cmd.get("track_name", "").lower()
+            if t_name not in unique_tracks:
+                unique_tracks[t_name] = []
+            unique_tracks[t_name].append(cmd)
             
-            for cmd in self._memoized_midi:
-                mid_track_name = cmd.get("track_name", "").lower()
-                mid_is_drum = any(k in mid_track_name for k in drum_keywords)
-                if target_is_drum == mid_is_drum:
+        drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum"]
+        target_is_drum = any(k in target_name for k in drum_keywords)
+        
+        # Priority 1: Smart filtering based on role
+        if target_is_drum:
+            # For drums, we usually have one "Drum" track containing all drums on different pitches.
+            # We must filter by pitch to separate kick, snare, hats!
+            drum_cmds = []
+            for t_name, cmds in unique_tracks.items():
+                if any(k in t_name for k in drum_keywords):
+                    drum_cmds.extend(cmds)
+            
+            # General drum mapping (General MIDI std)
+            kick_pitches = [35, 36]
+            snare_pitches = [38, 39, 40]
+            hat_pitches = [42, 44, 46]
+            perc_pitches = [x for x in range(27, 88) if x not in kick_pitches + snare_pitches + hat_pitches]
+            
+            for cmd in drum_cmds:
+                if "note" not in cmd:
+                    continue
+                # Extract MIDI pitch number from the Renoise note string or if it's stored
+                # (Assuming the original midi_pitch might be lost, we map back roughly or just 
+                # keep all drums if we can't tell. Wait, midi_to_renoise_commands retains 'midi_pitch'?
+                # If not, let's just distribute drum tracks by index if there are multiple)
+                
+                # Actually, Text2midi often separates drums into different tracks sometimes? No, usually one track.
+                # If we don't have midi_pitch, let's just use string names:
+                note_str = cmd.get("note", "")
+                
+                # Very rough distribution if we can't separate by pitch:
+                # If target is kick, keep lower notes (C-1 to B-2)
+                # If target is snare, keep mid notes (C-3 to B-3)
+                # If hats, keep high notes (C-4+)
+                octave_match = re.search(r"\d", note_str)
+                octave = int(octave_match.group(0)) if octave_match else 4
+                
+                if "kick" in target_name and octave < 3:
                     filtered_commands.append(cmd)
-
-        # Fallback: If still nothing, or many tracks, we just return the track by index
-        # (This is a last resort to ensure SOMETHING is played)
-        if not filtered_commands:
-            # Guessing track mapping by simple index if possible
-            # But since we don't have track_idx here easily, we'll return an empty list 
-            # and let the next role attempt a match.
-            pass
+                elif ("snare" in target_name or "clap" in target_name) and octave == 3:
+                    filtered_commands.append(cmd)
+                elif "hat" in target_name and octave >= 4:
+                    filtered_commands.append(cmd)
+                elif "perc" in target_name:
+                    filtered_commands.append(cmd) # Catch-all
+                    
+            # If no rough pitch matches but we found drums, just give them the drum track if they are the FIRST drum target? 
+            # (To avoid completely empty tracks)
+            if not filtered_commands and drum_cmds and "kick" in target_name:
+                 filtered_commands = drum_cmds
+        else:
+            # NON-DRUMS: We want to assign ONE unique neural track to ONE renoise track to avoid messy stacking.
+            # Let's map target track names to available neural tracks
+            neural_non_drums = {k: v for k, v in unique_tracks.items() if not any(kw in k for kw in drum_keywords)}
+            
+            # Simple assignment: hash the target_name to pick a track stably
+            if neural_non_drums:
+                keys = sorted(list(neural_non_drums.keys()))
+                # Try to find a substring match first (e.g. "bass" -> "acoustic bass")
+                matched_key = None
+                for k in keys:
+                    if target_name in k or k in target_name:
+                        matched_key = k
+                        break
+                
+                if not matched_key:
+                    # Deterministic hash to distribute non-matching tracks
+                    idx = sum(ord(c) for c in target_name) % len(keys)
+                    matched_key = keys[idx]
+                    
+                filtered_commands = neural_non_drums[matched_key]
             
         print(f"[Composer] Role '{target_name}' matched {len(filtered_commands)} events.")
         return json.dumps(filtered_commands)
@@ -639,10 +697,11 @@ class MIDIComposer:
         Parses neural/token output into Renoise JSON.
         """
         tokens_stripped = tokens.strip()
-        if tokens_stripped.startswith("[[") or tokens_stripped.startswith("[{\"line\""):
+        if tokens_stripped.startswith("["):
             try:
                 grid_data = json.loads(tokens_stripped)
-                return self._parse_native_grid_tokens(grid_data, song_length, target_track, forced_instrument, is_drum)
+                if isinstance(grid_data, list):
+                    return self._parse_native_grid_tokens(grid_data, song_length, target_track, forced_instrument, is_drum)
             except:
                 pass
         
@@ -667,7 +726,7 @@ class MIDIComposer:
                 if is_drum:
                     note = self._enforce_drum_octave(note)
                     
-                inst = forced_instrument if forced_instrument is not None else (item[2] if len(item) > 2 else 0)
+                inst = forced_instrument if forced_instrument is not None else (item[2] if len(item) > 2 else target_track)
                 vel  = item[3] if len(item) > 3 else 255
                 
                 commands.append({
@@ -684,7 +743,7 @@ class MIDIComposer:
                 if is_drum:
                     note_val = self._enforce_drum_octave(note_val)
                     
-                inst_val = forced_instrument if forced_instrument is not None else item.get("instrument", 0)
+                inst_val = forced_instrument if forced_instrument is not None else item.get("instrument", target_track)
                 commands.append({
                     "type": "set_note",
                     "track": target_track,
