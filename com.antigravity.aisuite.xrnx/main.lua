@@ -301,24 +301,29 @@ end
 
 local function auto_assign_sample(inst, track_name)
   local sample_path = find_best_sample(track_name)
-  if not sample_path then return false end
+  if not sample_path then
+    print(string.format("[AI Suite] No library path set or no match found for '%s'", track_name))
+    return false
+  end
 
-  -- Make sure there's a sample slot
+  -- Ensure there's a sample slot
   if #inst.samples == 0 then
     inst:insert_sample_at(1)
   end
 
-  -- Load the sample
+  local sample = inst.samples[1]
+  
+  -- Correct Renoise Lua API: sample.sample_buffer:load_from(path)
   local ok, err = pcall(function()
-    inst.samples[1]:load_sample_data(sample_path)
-    inst.samples[1].name = track_name
+    sample.sample_buffer:load_from(sample_path)
+    sample.name = track_name
   end)
 
-  if ok then
-    print(string.format("[AI Suite] Auto-assigned '%s' -> '%s'", track_name, sample_path))
+  if ok and sample.sample_buffer.has_sample_data then
+    print(string.format("[AI Suite] ✓ Auto-assigned '%s' -> '%s'", track_name, sample_path))
     return true
   else
-    print(string.format("[AI Suite] Failed to load sample for '%s': %s", track_name, tostring(err)))
+    print(string.format("[AI Suite] ✗ Failed to load sample for '%s': %s | path: %s", track_name, tostring(err), sample_path))
     return false
   end
 end
