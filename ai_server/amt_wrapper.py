@@ -2,11 +2,10 @@
 amt_wrapper.py — Hybrid AMT + Theory Engine for Renoise AI Suite
 
 Strategy:
-  1. AMT (359M params) generates melodic/harmonic MIDI in 10-second segments
-  2. Theory engine provides reliable drum patterns as backbone
-  3. Results are merged into Renoise pattern editor commands
-
-This gives us AI-quality melodies WITH reliable rhythm.
+  1. AMT (359M params) generates melodic/harmonic content in chunks
+  2. Raw AMT event tokens parsed directly (bypasses buggy events_to_midi)
+  3. Theory engine provides reliable drum patterns as backbone
+  4. Results merged into Renoise pattern editor commands
 """
 
 import os
@@ -16,7 +15,6 @@ import math
 import random
 
 import torch
-import mido
 
 # Lazy imports for anticipation
 _model = None
@@ -95,12 +93,10 @@ def get_model():
 # ─── Theory Engine: Drum Patterns ────────────────────────────────────────────
 
 def gen_kick_pattern(lines, lpb):
-    """4-on-the-floor kick pattern."""
     events = []
     step = lpb  # One kick per beat
     for l in range(0, lines, step):
         events.append((l, "C-4"))
-        # Ghost kick 30% of the time for groove
         if random.random() > 0.7:
             ghost = l + step // 2
             if ghost < lines:
@@ -108,16 +104,14 @@ def gen_kick_pattern(lines, lpb):
     return events
 
 def gen_snare_pattern(lines, lpb):
-    """Snare on beats 2 and 4."""
     events = []
     bar = lpb * 4
     for b in range(0, lines, bar):
-        events.append((b + lpb, "D-4"))      # Beat 2
-        events.append((b + lpb * 3, "D-4"))  # Beat 4
+        events.append((b + lpb, "D-4"))
+        events.append((b + lpb * 3, "D-4"))
     return events
 
 def gen_hihat_pattern(lines, lpb):
-    """Closed hi-hat on every 8th note."""
     events = []
     step = max(1, lpb // 2)
     for l in range(0, lines, step):
@@ -125,10 +119,9 @@ def gen_hihat_pattern(lines, lpb):
     return events
 
 
-# ─── Section-aware structure ─────────────────────────────────────────────────
+# ─── Section Structure ───────────────────────────────────────────────────────
 
 def get_section_type(pattern_idx, total_patterns):
-    """Determine what section a pattern belongs to."""
     progress = pattern_idx / max(1, total_patterns)
     if progress < 0.12:  return "intro"
     if progress < 0.38:  return "verse"
@@ -137,116 +130,143 @@ def get_section_type(pattern_idx, total_patterns):
     if progress < 0.87:  return "breakdown"
     return "outro"
 
-# Which drum tracks are SILENT in each section
 DRUMS_SILENT_IN = {
-    "intro":     set(),           # Kick present in intro
-    "verse":     set(),           # Full drums
-    "build":     set(),           # Full drums
-    "drop":      set(),           # Full drums
-    "breakdown": {"kick", "snare", "hihat"},  # NO drums in breakdown
-    "outro":     {"snare"},       # Strip back snare in outro
+    "intro":     set(),
+    "verse":     set(),
+    "build":     set(),
+    "drop":      set(),
+    "breakdown": {"kick", "snare", "hihat"},
+    "outro":     {"snare"},
 }
 
 
-# ─── MIDI → Renoise Conversion ───────────────────────────────────────────────
+# ─── Direct AMT Event Parsing (bypasses buggy events_to_midi) ────────────────
 
-def midi_to_renoise_commands(mid, bpm, song_length, lines_per_pattern=64, lpb=4):
-    """Convert AMT MIDI output to Renoise commands for melodic tracks."""
-    commands = []
+def parse_amt_events_direct(events, bpm, song_length, lines_per_pattern=64, lpb=4):
+    """
+    Parse raw AMT event tokens directly into Renoise commands.
+    
+    AMT events are a flat list of triplets: [time, dur, note, time, dur, note, ...]
+    Each triplet uses vocabulary offsets from anticipation.vocab.
+    
+    This bypasses events_to_midi entirely, avoiding the MIDI channel overflow bug.
+    """
+    from anticipation.config import TIME_RESOLUTION, MAX_PITCH
+    from anticipation.vocab import TIME_OFFSET, DUR_OFFSET, NOTE_OFFSET
+    from anticipation import ops
 
-    ticks_per_beat = mid.ticks_per_beat or 480
+    # Clean events (remove padding/controls)
+    events = ops.unpad(events)
+    
+    if len(events) < 3:
+        return [], 0
+
+    # Parse triplets
     seconds_per_beat = 60.0 / bpm
     seconds_per_line = seconds_per_beat / lpb
     total_lines = song_length * lines_per_pattern
 
-    # Collect all note events
-    all_notes = []
-    for track in mid.tracks:
-        abs_time_ticks = 0
-        active_notes = {}
+    # Group notes by instrument for track assignment
+    # instrument_notes: {instrument_id: [(time_sec, dur_sec, pitch), ...]}
+    instrument_notes = {}
+    
+    for i in range(0, len(events) - 2, 3):
+        raw_time = events[i]
+        raw_dur = events[i+1]
+        raw_note = events[i+2]
+        
+        # Decode
+        time_ticks = raw_time - TIME_OFFSET
+        dur_ticks = raw_dur - DUR_OFFSET
+        note_val = raw_note - NOTE_OFFSET
+        
+        if time_ticks < 0 or dur_ticks < 0 or note_val < 0:
+            continue
+        
+        instrument = note_val // MAX_PITCH
+        pitch = note_val % MAX_PITCH
+        
+        time_sec = time_ticks / TIME_RESOLUTION
+        dur_sec = dur_ticks / TIME_RESOLUTION
+        
+        if instrument not in instrument_notes:
+            instrument_notes[instrument] = []
+        instrument_notes[instrument].append((time_sec, dur_sec, pitch))
 
-        for msg in track:
-            abs_time_ticks += msg.time
-            if msg.type == 'note_on' and msg.velocity > 0:
-                active_notes[(msg.channel, msg.note)] = abs_time_ticks
-            elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-                key = (msg.channel, msg.note)
-                if key in active_notes:
-                    start_ticks = active_notes.pop(key)
-                    dur_ticks = abs_time_ticks - start_ticks
-                    start_sec = (start_ticks / ticks_per_beat) * seconds_per_beat
-                    dur_sec = (dur_ticks / ticks_per_beat) * seconds_per_beat
-                    all_notes.append((start_sec, msg.note, msg.channel, dur_sec))
+    if not instrument_notes:
+        return [], 0
 
-    if not all_notes:
-        return commands, 0
-
-    all_notes.sort(key=lambda x: x[0])
-
-    # Group by channel, map to tracks (skip channel 9 = drums, AMT handles melody)
-    channels = sorted(set(n[2] for n in all_notes if n[2] != 9))
-    channel_to_track = {}
-    # Reserve tracks 0-2 for drums (kick, snare, hihat), AMT gets tracks 3-7
-    for i, ch in enumerate(channels[:5]):
-        channel_to_track[ch] = i + 3  # Offsets 3-7
-
-    # Name tracks by pitch range
-    for ch in channels[:5]:
-        track_idx = channel_to_track[ch]
-        ch_notes = [n for n in all_notes if n[2] == ch]
-        pitches = [n[1] for n in ch_notes]
-        avg = sum(pitches) / len(pitches) if pitches else 60
-
-        if avg < 48:
-            name = "Bass (AI)"
-        elif avg < 60:
-            name = "Pad (AI)"
-        elif avg < 72:
-            name = "Lead (AI)"
-        else:
-            name = "Melody (AI)"
-
-        commands.append({"type": "add_track", "track": track_idx, "name": name})
-
-    # Convert notes
+    # Sort instruments by note count (most used first), take top 5
+    sorted_instruments = sorted(instrument_notes.keys(), 
+                                key=lambda k: len(instrument_notes[k]), 
+                                reverse=True)
+    
+    # Skip instrument 128 (drums — we handle those with theory engine)
+    melodic_instruments = [i for i in sorted_instruments if i != 128][:5]
+    
+    commands = []
     note_count = 0
-    for start_sec, pitch, channel, dur_sec in all_notes:
-        if channel not in channel_to_track:
-            continue
-
-        track_idx = channel_to_track[channel]
-        abs_line = int(start_sec / seconds_per_line)
-        if abs_line >= total_lines:
-            continue
-
-        pattern_idx = abs_line // lines_per_pattern
-        line = abs_line % lines_per_pattern
-        if pattern_idx >= song_length:
-            continue
-
+    
+    # Name tracks based on GM instrument + pitch range
+    GM_NAMES = {
+        range(0, 8): "Piano (AI)", range(8, 16): "Chromatic (AI)",
+        range(16, 24): "Organ (AI)", range(24, 32): "Guitar (AI)",
+        range(32, 40): "Bass (AI)", range(40, 48): "Strings (AI)",
+        range(48, 56): "Ensemble (AI)", range(56, 64): "Brass (AI)",
+        range(64, 72): "Reed (AI)", range(72, 80): "Flute (AI)",
+        range(80, 88): "Lead (AI)", range(88, 96): "Pad (AI)",
+        range(96, 104): "FX (AI)", range(104, 128): "Synth (AI)",
+    }
+    
+    def get_gm_name(instr_id):
+        for rng, name in GM_NAMES.items():
+            if instr_id in rng:
+                return name
+        return "Synth (AI)"
+    
+    for track_offset, instr_id in enumerate(melodic_instruments):
+        track_idx = track_offset + 3  # Tracks 3-7 (0-2 are drums)
+        
         commands.append({
-            "type": "set_note",
-            "track": track_idx,
-            "pattern": pattern_idx,
-            "line": line,
-            "note": midi_to_renoise(pitch),
-            "instrument": track_idx,
-            "volume": "7F"
+            "type": "add_track", 
+            "track": track_idx, 
+            "name": get_gm_name(instr_id)
         })
-        note_count += 1
-
-        # Note-off
-        dur_lines = max(1, int(dur_sec / seconds_per_line))
-        off_abs = abs_line + dur_lines
-        off_pat = off_abs // lines_per_pattern
-        off_line = off_abs % lines_per_pattern
-        if off_pat < song_length:
+        
+        for time_sec, dur_sec, pitch in instrument_notes[instr_id]:
+            abs_line = int(time_sec / seconds_per_line)
+            if abs_line >= total_lines:
+                continue
+            
+            pattern_idx = abs_line // lines_per_pattern
+            line = abs_line % lines_per_pattern
+            
+            if pattern_idx >= song_length:
+                continue
+            
             commands.append({
-                "type": "note_off",
+                "type": "set_note",
                 "track": track_idx,
-                "pattern": off_pat,
-                "line": off_line
+                "pattern": pattern_idx,
+                "line": line,
+                "note": midi_to_renoise(pitch),
+                "instrument": track_idx,
+                "volume": "7F"
             })
+            note_count += 1
+            
+            # Note-off
+            dur_lines = max(1, int(dur_sec / seconds_per_line))
+            off_abs = abs_line + dur_lines
+            off_pat = off_abs // lines_per_pattern
+            off_line = off_abs % lines_per_pattern
+            if off_pat < song_length:
+                commands.append({
+                    "type": "note_off",
+                    "track": track_idx,
+                    "pattern": off_pat,
+                    "line": off_line
+                })
 
     return commands, note_count
 
@@ -266,9 +286,7 @@ class AMTWrapper:
                        lines_per_pattern=64, lpb=4, update_fn=None):
         """
         Hybrid generation: AMT melody + theory engine drums.
-
-        Generates in 10-second chunks for higher note density,
-        then adds reliable drum patterns from the theory engine.
+        Generates in short chunks for higher note density.
         """
         self.ensure_model()
 
@@ -290,9 +308,8 @@ class AMTWrapper:
 
         # ── Step 1: Generate AMT melody in chunks ───────────────────────
         from anticipation.sample import generate
-        from anticipation.convert import events_to_midi
 
-        CHUNK_SIZE = 15  # seconds per chunk — shorter = denser output
+        CHUNK_SIZE = 10  # shorter chunks = denser output
         all_events = []
         t0 = time.time()
 
@@ -306,14 +323,14 @@ class AMTWrapper:
             chunk_end = min(chunk_start + CHUNK_SIZE, total_seconds)
 
             if update_fn and chunk_idx % 3 == 0:
-                update_fn(f"AMT: Chunk {chunk_idx+1}/{num_chunks} ({chunk_start:.0f}-{chunk_end:.0f}s)...")
+                update_fn(f"AMT: Chunk {chunk_idx+1}/{num_chunks}...")
 
             try:
                 events = generate(
                     self.model,
                     start_time=chunk_start,
                     end_time=chunk_end,
-                    top_p=0.95  # Lower = more notes (less selective)
+                    top_p=0.95
                 )
                 all_events.extend(events)
             except Exception as e:
@@ -321,22 +338,15 @@ class AMTWrapper:
                 continue
 
         elapsed = time.time() - t0
+        print(f"AMTWrapper: Generated {len(all_events)} raw event tokens in {elapsed:.1f}s")
 
-        # Convert all events to MIDI
-        if all_events:
-            mid = events_to_midi(all_events)
-        else:
-            mid = mido.MidiFile()
-            mid.add_track()
-            print("AMTWrapper: WARNING — no events generated, using empty MIDI")
-
-        # ── Step 2: Convert AMT MIDI → Renoise commands ─────────────────
+        # ── Step 2: Build Renoise commands ──────────────────────────────
         commands = []
         commands.append({"type": "set_bpm", "bpm": actual_bpm})
         commands.append({"type": "set_lpb", "lpb": lpb})
         commands.append({"type": "init_arrangement", "patterns": song_length})
 
-        # Drums first (tracks 0-2)
+        # Drum tracks (0-2)
         commands.append({"type": "add_track", "track": 0, "name": "Kick"})
         commands.append({"type": "add_track", "track": 1, "name": "Snare"})
         commands.append({"type": "add_track", "track": 2, "name": "Hi-Hat"})
@@ -350,7 +360,6 @@ class AMTWrapper:
             sec = get_section_type(p_idx, song_length)
             silent = DRUMS_SILENT_IN.get(sec, set())
 
-            # Kick (track 0)
             if "kick" not in silent:
                 for line, note in gen_kick_pattern(lines_per_pattern, lpb):
                     commands.append({
@@ -359,7 +368,6 @@ class AMTWrapper:
                     })
                     drum_note_count += 1
 
-            # Snare (track 1)
             if "snare" not in silent:
                 for line, note in gen_snare_pattern(lines_per_pattern, lpb):
                     commands.append({
@@ -368,7 +376,6 @@ class AMTWrapper:
                     })
                     drum_note_count += 1
 
-            # Hi-hat (track 2)
             if "hihat" not in silent:
                 for line, note in gen_hihat_pattern(lines_per_pattern, lpb):
                     commands.append({
@@ -377,22 +384,22 @@ class AMTWrapper:
                     })
                     drum_note_count += 1
 
-        # ── Step 4: Add AMT melodic content (tracks 3-7) ────────────────
+        # ── Step 4: Parse AMT events directly (no events_to_midi) ───────
         if update_fn:
             update_fn("Converting AI melody to Renoise patterns...")
 
-        amt_commands, amt_note_count = midi_to_renoise_commands(
-            mid, actual_bpm, song_length,
+        amt_commands, amt_note_count = parse_amt_events_direct(
+            all_events, actual_bpm, song_length,
             lines_per_pattern=lines_per_pattern,
             lpb=lpb
         )
         commands.extend(amt_commands)
 
         total_notes = drum_note_count + amt_note_count
-        print(f"AMTWrapper: {drum_note_count} drum notes + {amt_note_count} AI melody notes "
-              f"= {total_notes} total in {elapsed:.1f}s")
+        print(f"AMTWrapper: {drum_note_count} drum + {amt_note_count} AI melody "
+              f"= {total_notes} total notes in {elapsed:.1f}s")
 
         if update_fn:
-            update_fn(f"AMT: Done! {total_notes} notes ({amt_note_count} AI melody + {drum_note_count} drums)")
+            update_fn(f"AMT: Done! {total_notes} notes ({amt_note_count} AI + {drum_note_count} drums)")
 
         return commands
