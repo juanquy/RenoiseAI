@@ -146,15 +146,69 @@ def run_compose_native_midi_bg(task):
         song_length = task.get("song_length", 16)
         instruments = task.get("instruments", [])
         
-        # Hardwired Advanced Electronic Music Template (replaces Ollama Conductor)
+        # ── Structured Electronic Music Blueprint ────────────────────────────
+        # Track indices (0-based)
+        T_KICK   = 0   # Hammer Kick
+        T_SUB    = 1   # Sub Bass
+        T_REESE  = 2   # Mid Bass (Reese)
+        T_HAT    = 3   # High Hats
+        T_SNARE  = 4   # Snare / Clap
+        T_PERC   = 5   # Percussion
+        T_PAD    = 6   # Atmospheric Pads
+        T_LEAD   = 7   # Lead Synth / Arp
+
+        # Which tracks are ACTIVE (generate notes) per section type
+        # Based on DJ-standard Progressive Electronic arrangement
+        SECTION_ACTIVE_TRACKS = {
+            "intro":      [T_KICK, T_HAT, T_PERC],                              # Sparse: only rhythm for DJ mix-in
+            "verse":      [T_KICK, T_SUB, T_HAT, T_SNARE, T_PERC, T_PAD],      # Groove established, no lead yet
+            "build":      [T_KICK, T_SUB, T_HAT, T_SNARE, T_PERC],             # Rising tension, no pads/lead
+            "drop":       [T_KICK, T_SUB, T_REESE, T_HAT, T_SNARE, T_PERC, T_PAD, T_LEAD],  # FULL ENERGY
+            "breakdown":  [T_SUB, T_PAD, T_LEAD],                               # No kick! Emotional, melodic
+            "outro":      [T_KICK, T_HAT, T_PERC],                              # Mirror intro for DJ mix-out
+        }
+
         s_len = max(song_length, 16)
+
+        # Extended DJ Structure (16 patterns):
+        # P00-P01: Intro (12.5% = 2 patterns)
+        # P02-P03: Verse 1 (12.5%)
+        # P04:     Build 1 (6%)
+        # P05-P07: Drop 1 (19%)
+        # P08-P09: Breakdown (12.5%)
+        # P10:     Build 2 (6%)
+        # P11-P13: Drop 2 (19%)
+        # P14-P15: Outro (12.5%)
+        def build_sections(n):
+            q = n // 8
+            sections = [
+                {"name": "Intro A",      "type": "intro",     "start": 0,           "end": max(0, q-1),              "desc": "Sparse kick and hats, DJ mix-in"},
+                {"name": "Intro B",      "type": "intro",     "start": q,           "end": max(q, q*2-1),            "desc": "Atmosphere and pads slowly filter in"},
+                {"name": "Verse 1A",     "type": "verse",     "start": q*2,         "end": max(q*2, q*3-1),          "desc": "Bassline and groove established"},
+                {"name": "Verse 1B",     "type": "verse",     "start": q*3,         "end": max(q*3, q*3),            "desc": "Full groove, teasing the drop"},
+                {"name": "Build 1",      "type": "build",     "start": q*3+1,       "end": max(q*3+1, q*4-1),        "desc": "Snare rolls, risers, tension peak"},
+                {"name": "Drop 1A",      "type": "drop",      "start": q*4,         "end": max(q*4, q*4+q//2-1),     "desc": "Full energy burst"},
+                {"name": "Drop 1B",      "type": "drop",      "start": q*4+q//2,    "end": max(q*4+q//2, q*5-1),     "desc": "Groove at peak"},
+                {"name": "Drop 1C",      "type": "drop",      "start": q*5,         "end": max(q*5, q*5),            "desc": "Peak energy, slight variation"},
+                {"name": "Breakdown A",  "type": "breakdown", "start": q*5+1,       "end": max(q*5+1, q*6-1),        "desc": "No kick, emotional pads and lead"},
+                {"name": "Breakdown B",  "type": "breakdown", "start": q*6,         "end": max(q*6, q*6),            "desc": "Deepest tension, just pads and bass"},
+                {"name": "Build 2",      "type": "build",     "start": q*6+1,       "end": max(q*6+1, q*7-1),        "desc": "Kick returns, massive snare roll"},
+                {"name": "Drop 2A",      "type": "drop",      "start": q*7,         "end": max(q*7, q*7+q//2-1),     "desc": "Climax — all elements, maximum energy"},
+                {"name": "Drop 2B",      "type": "drop",      "start": q*7+q//2,    "end": max(q*7+q//2, n-q-1),     "desc": "Variation of the climax groove"},
+                {"name": "Outro A",      "type": "outro",     "start": max(0,n-q),  "end": max(0,n-q//2-1),          "desc": "Strip back, elements fade"},
+                {"name": "Outro B",      "type": "outro",     "start": max(0,n-q//2), "end": n-1,                    "desc": "Kick and hats only, DJ mix-out"},
+            ]
+            # Clamp and deduplicate
+            valid = []
+            for s in sections:
+                s["start"] = min(max(int(s["start"]), 0), n-1)
+                s["end"]   = min(max(int(s["end"]),   s["start"]), n-1)
+                valid.append(s)
+            return valid
+
         plan = {
-            "sections": [
-                {"name": "Intro", "start_pattern": 0, "end_pattern": (s_len//4) - 1, "description": "Atmospheric intro"},
-                {"name": "Build", "start_pattern": (s_len//4), "end_pattern": (s_len//2) - 1, "description": "Rising tension, snares"},
-                {"name": "Drop", "start_pattern": (s_len//2), "end_pattern": (3*s_len//4) - 1, "description": "Full energy, heavy bass"},
-                {"name": "Outro", "start_pattern": (3*s_len//4), "end_pattern": s_len - 1, "description": "Fading out, minimal drums"}
-            ],
+            "plan": f"Professional DJ-Ready Extended Mix — {prompt}",
+            "sections": build_sections(s_len),
             "commands": [
                 {"type": "init_arrangement", "patterns": s_len},
                 {"type": "add_track", "track": 0, "name": "Hammer Kick"},
@@ -168,58 +222,63 @@ def run_compose_native_midi_bg(task):
             ]
         }
 
-        # Step 2: Neural MIDI Dreaming (Multi-Section / Multi-Track)
+        # Step 2: Neural MIDI Generation per Section per Track
         final_midi_commands = []
         if plan and "sections" in plan and "commands" in plan:
             sections = plan.get("sections", [])
             tracks_to_fill = [c for c in plan["commands"] if c.get("type") == "add_track"]
-            
+
             composer = get_midi_composer()
             composer.clear_cache()
-            
+
+            drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum", "rim", "crash", "ride"]
+
             for section in sections:
                 sec_name = section.get("name", "Section")
-                start_p = int(section.get("start_pattern", 0))
-                end_p = int(section.get("end_pattern", 0))
-                sec_desc = section.get("description", "")
-                
-                update_task(task_id, {"message": f"Neural Dreaming: Section '{sec_name}' (Patterns {start_p}-{end_p})..."})
-                
+                sec_type = section.get("type", "drop").lower()
+                start_p  = int(section.get("start", 0))
+                end_p    = int(section.get("end", 0))
+                sec_desc = section.get("desc", "")
+
+                # Which tracks are allowed to generate notes in this section?
+                active_tracks = SECTION_ACTIVE_TRACKS.get(sec_type, list(range(8)))
+
+                update_task(task_id, {"message": f"Neural Dreaming: [{sec_name}] Patterns {start_p}-{end_p}..."})
+
                 for t_info in tracks_to_fill:
                     track_name = t_info.get("name", "Synth")
-                    track_idx = t_info.get("track", 0)
-                    # Always force the instrument index to match the track index
-                    # This guarantees each Renoise track maps to its own instrument slot (00=Kick, 01=Sub Bass, etc.)
+                    track_idx  = t_info.get("track", 0)
+
+                    # ── KEY CHANGE: skip tracks not active in this section ──
+                    if track_idx not in active_tracks:
+                        continue
+
                     forced_inst = track_idx
-                    
-                    # Logic to identify if this is a drum track
-                    drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum", "rim", "crash", "ride"]
                     is_drum = any(k in track_name.lower() for k in drum_keywords)
-                    
-                    # Plan context for this specific section and track
-                    role_context = f"Section: {sec_name}. Track: {track_name}. Goal: {sec_desc}. Forced Instrument Slot: {forced_inst}. Overall: {plan.get('plan', '')}"
-                    
-                    # Generate a unique sequence for this section
+
+                    role_context = (
+                        f"Section: {sec_name} ({sec_type}). Track: {track_name}. "
+                        f"Goal: {sec_desc}. Instrument Slot: {forced_inst}. Song: {prompt}"
+                    )
+
                     raw_output = composer.generate_midi_sequence(
                         role_prompt=role_context,
                         instruments=instruments,
                         plan_context=plan.get("plan", prompt),
                         forced_instrument=forced_inst
                     )
-                    
-                    # Convert to base Renoise commands (usually Pattern 0 relative)
+
                     base_commands = composer.tokens_to_renoise_json(
-                        raw_output, 
-                        song_length=1, # Single pattern base
+                        raw_output,
+                        song_length=1,
                         target_track=track_idx,
                         forced_instrument=forced_inst,
                         is_drum=is_drum
                     )
-                    
-                    # Duplicate/Distribute across pattern range
+
                     for p_idx in range(start_p, end_p + 1):
                         for b_cmd in base_commands:
-                            if b_cmd.get("type") == "set_note" or b_cmd.get("type") == "note_off":
+                            if b_cmd.get("type") in ["set_note", "note_off"]:
                                 new_cmd = b_cmd.copy()
                                 new_cmd["pattern"] = p_idx
                                 final_midi_commands.append(new_cmd)
