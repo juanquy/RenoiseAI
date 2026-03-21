@@ -146,59 +146,66 @@ def run_compose_native_midi_bg(task):
         song_length = task.get("song_length", 16)
         instruments = task.get("instruments", [])
         
-        # ── Structured Electronic Music Blueprint ────────────────────────────
-        # Track indices (0-based)
-        T_KICK   = 0   # Hammer Kick
-        T_SUB    = 1   # Sub Bass
-        T_REESE  = 2   # Mid Bass (Reese)
-        T_HAT    = 3   # High Hats
-        T_SNARE  = 4   # Snare / Clap
-        T_PERC   = 5   # Percussion
-        T_PAD    = 6   # Atmospheric Pads
-        T_LEAD   = 7   # Lead Synth / Arp
+        # ── Electronic Music Blueprint v2: Melody First ───────────────────────
+        #
+        # REAL electronic music track balance:
+        #   - 5 melodic/harmonic tracks (Bass, Lead, Chord, Arp, Sub)
+        #   - 3 rhythm tracks (Kick, Hats, Snare)
+        #
+        # Track indices (0-based):
+        T_KICK  = 0   # Kick Drum          — the pulse
+        T_BASS  = 1   # Melodic Bass       — harmonic anchor, plays NOTES, not just a thud
+        T_SUB   = 2   # Sub / 808          — low-frequency body
+        T_LEAD  = 3   # Lead Synth         — main melodic hook, always present in verse/drop
+        T_CHORD = 4   # Chord Pad / Stab   — harmonic color (chords, stabs, pads)
+        T_ARP   = 5   # Arp / Pluck        — rhythmic melodic layer, texture
+        T_HAT   = 6   # Hi-Hats / Rhythm   — groove and movement
+        T_SNARE = 7   # Snare / Clap       — backbeat
 
-        # Which tracks are ACTIVE (generate notes) per section type
-        # Based on DJ-standard Progressive Electronic arrangement
+        # ── Per-section active track rules ───────────────────────────────────
+        # RULE: Melody tracks are ALWAYS the CENTER of the mix.
+        # Drums support the melody — not the other way around.
         SECTION_ACTIVE_TRACKS = {
-            "intro":      [T_KICK, T_HAT, T_PERC],                              # Sparse: only rhythm for DJ mix-in
-            "verse":      [T_KICK, T_SUB, T_HAT, T_SNARE, T_PERC, T_PAD],      # Groove established, no lead yet
-            "build":      [T_KICK, T_SUB, T_HAT, T_SNARE, T_PERC],             # Rising tension, no pads/lead
-            "drop":       [T_KICK, T_SUB, T_REESE, T_HAT, T_SNARE, T_PERC, T_PAD, T_LEAD],  # FULL ENERGY
-            "breakdown":  [T_SUB, T_PAD, T_LEAD],                               # No kick! Emotional, melodic
-            "outro":      [T_KICK, T_HAT, T_PERC],                              # Mirror intro for DJ mix-out
+            # Intro: bass + subtle melody hint + rhythm skeleton
+            "intro":       [T_KICK, T_BASS, T_CHORD, T_HAT],
+
+            # Verse: full harmonic bed + lead melody introduced
+            "verse":       [T_KICK, T_BASS, T_SUB, T_LEAD, T_CHORD, T_HAT, T_SNARE],
+
+            # Build: melody escalates, arp adds motion, tension before drop
+            "build":       [T_KICK, T_BASS, T_LEAD, T_ARP, T_HAT, T_SNARE],
+
+            # Drop: EVERYTHING — the payoff moment
+            "drop":        [T_KICK, T_BASS, T_SUB, T_LEAD, T_CHORD, T_ARP, T_HAT, T_SNARE],
+
+            # Breakdown: NO drums, just pure melody and atmosphere
+            # This is the emotional core — pads, lead, bass harmonics
+            "breakdown":   [T_BASS, T_LEAD, T_CHORD, T_ARP],
+
+            # Outro: mirror intro — remove lead, keep bass + rhythm
+            "outro":       [T_KICK, T_BASS, T_CHORD, T_HAT],
         }
 
         s_len = max(song_length, 16)
 
-        # Extended DJ Structure (16 patterns):
-        # P00-P01: Intro (12.5% = 2 patterns)
-        # P02-P03: Verse 1 (12.5%)
-        # P04:     Build 1 (6%)
-        # P05-P07: Drop 1 (19%)
-        # P08-P09: Breakdown (12.5%)
-        # P10:     Build 2 (6%)
-        # P11-P13: Drop 2 (19%)
-        # P14-P15: Outro (12.5%)
         def build_sections(n):
-            q = n // 8
+            q = max(1, n // 8)
             sections = [
-                {"name": "Intro A",      "type": "intro",     "start": 0,           "end": max(0, q-1),              "desc": "Sparse kick and hats, DJ mix-in"},
-                {"name": "Intro B",      "type": "intro",     "start": q,           "end": max(q, q*2-1),            "desc": "Atmosphere and pads slowly filter in"},
-                {"name": "Verse 1A",     "type": "verse",     "start": q*2,         "end": max(q*2, q*3-1),          "desc": "Bassline and groove established"},
-                {"name": "Verse 1B",     "type": "verse",     "start": q*3,         "end": max(q*3, q*3),            "desc": "Full groove, teasing the drop"},
-                {"name": "Build 1",      "type": "build",     "start": q*3+1,       "end": max(q*3+1, q*4-1),        "desc": "Snare rolls, risers, tension peak"},
-                {"name": "Drop 1A",      "type": "drop",      "start": q*4,         "end": max(q*4, q*4+q//2-1),     "desc": "Full energy burst"},
-                {"name": "Drop 1B",      "type": "drop",      "start": q*4+q//2,    "end": max(q*4+q//2, q*5-1),     "desc": "Groove at peak"},
-                {"name": "Drop 1C",      "type": "drop",      "start": q*5,         "end": max(q*5, q*5),            "desc": "Peak energy, slight variation"},
-                {"name": "Breakdown A",  "type": "breakdown", "start": q*5+1,       "end": max(q*5+1, q*6-1),        "desc": "No kick, emotional pads and lead"},
-                {"name": "Breakdown B",  "type": "breakdown", "start": q*6,         "end": max(q*6, q*6),            "desc": "Deepest tension, just pads and bass"},
-                {"name": "Build 2",      "type": "build",     "start": q*6+1,       "end": max(q*6+1, q*7-1),        "desc": "Kick returns, massive snare roll"},
-                {"name": "Drop 2A",      "type": "drop",      "start": q*7,         "end": max(q*7, q*7+q//2-1),     "desc": "Climax — all elements, maximum energy"},
-                {"name": "Drop 2B",      "type": "drop",      "start": q*7+q//2,    "end": max(q*7+q//2, n-q-1),     "desc": "Variation of the climax groove"},
-                {"name": "Outro A",      "type": "outro",     "start": max(0,n-q),  "end": max(0,n-q//2-1),          "desc": "Strip back, elements fade"},
-                {"name": "Outro B",      "type": "outro",     "start": max(0,n-q//2), "end": n-1,                    "desc": "Kick and hats only, DJ mix-out"},
+                {"name": "Intro A",     "type": "intro",     "start": 0,          "end": min(q-1,        n-1), "desc": "Bass and chords filter in, kick skeleton"},
+                {"name": "Intro B",     "type": "intro",     "start": q,          "end": min(q*2-1,      n-1), "desc": "Melody hints appear, groove builds"},
+                {"name": "Verse 1",     "type": "verse",     "start": q*2,        "end": min(q*3-1,      n-1), "desc": "Lead melody introduced, full harmonic groove"},
+                {"name": "Verse 2",     "type": "verse",     "start": q*3,        "end": min(q*3,        n-1), "desc": "Groove deepens, arp texture added"},
+                {"name": "Build 1",     "type": "build",     "start": q*3+1,      "end": min(q*4-1,      n-1), "desc": "Melody climbs, energy rises toward drop"},
+                {"name": "Drop 1A",     "type": "drop",      "start": q*4,        "end": min(q*4+q//2-1, n-1), "desc": "Main hook at full energy — all layers hit"},
+                {"name": "Drop 1B",     "type": "drop",      "start": q*4+q//2,   "end": min(q*5-1,      n-1), "desc": "Hook repeats, groove locked in"},
+                {"name": "Drop 1C",     "type": "drop",      "start": q*5,        "end": min(q*5,        n-1), "desc": "Final bar of drop with variation"},
+                {"name": "Breakdown",   "type": "breakdown", "start": q*5+1,      "end": min(q*6,        n-1), "desc": "No drums — pure melody, pads, atmosphere"},
+                {"name": "Build 2",     "type": "build",     "start": q*6+1,      "end": min(q*7-1,      n-1), "desc": "Kick returns over melody, climax builds"},
+                {"name": "Drop 2A",     "type": "drop",      "start": q*7,        "end": min(q*7+q//2-1, n-1), "desc": "Maximum energy — all elements, melodic peak"},
+                {"name": "Drop 2B",     "type": "drop",      "start": q*7+q//2,   "end": min(n-q-1,      n-1), "desc": "Groove variation, lead takes melodic detour"},
+                {"name": "Outro A",     "type": "outro",     "start": max(0,n-q), "end": min(max(0,n-q//2-1), n-1), "desc": "Lead fades, bass and chords remain"},
+                {"name": "Outro B",     "type": "outro",     "start": max(0,n-q//2), "end": n-1,                    "desc": "Kick and bass, rhythm fades for DJ mix-out"},
             ]
-            # Clamp and deduplicate
             valid = []
             for s in sections:
                 s["start"] = min(max(int(s["start"]), 0), n-1)
@@ -207,18 +214,18 @@ def run_compose_native_midi_bg(task):
             return valid
 
         plan = {
-            "plan": f"Professional DJ-Ready Extended Mix — {prompt}",
+            "plan": f"Electronic Extended Mix (Melody-First) — {prompt}",
             "sections": build_sections(s_len),
             "commands": [
                 {"type": "init_arrangement", "patterns": s_len},
-                {"type": "add_track", "track": 0, "name": "Hammer Kick"},
-                {"type": "add_track", "track": 1, "name": "Sub Bass"},
-                {"type": "add_track", "track": 2, "name": "Mid Bass (Reese)"},
-                {"type": "add_track", "track": 3, "name": "High Hats"},
-                {"type": "add_track", "track": 4, "name": "Snare / Clap"},
-                {"type": "add_track", "track": 5, "name": "Percussion"},
-                {"type": "add_track", "track": 6, "name": "Atmospheric Pads"},
-                {"type": "add_track", "track": 7, "name": "Lead Synth / Arp"}
+                {"type": "add_track", "track": 0, "name": "Kick Drum"},
+                {"type": "add_track", "track": 1, "name": "Bass Synth"},
+                {"type": "add_track", "track": 2, "name": "Sub / 808"},
+                {"type": "add_track", "track": 3, "name": "Lead Synth"},
+                {"type": "add_track", "track": 4, "name": "Chord Pad"},
+                {"type": "add_track", "track": 5, "name": "Arp / Pluck"},
+                {"type": "add_track", "track": 6, "name": "Hi-Hats"},
+                {"type": "add_track", "track": 7, "name": "Snare / Clap"},
             ]
         }
 
