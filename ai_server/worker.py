@@ -146,151 +146,31 @@ def run_compose_native_midi_bg(task):
         song_length = task.get("song_length", 16)
         instruments = task.get("instruments", [])
         
-        # ── Electronic Music Blueprint v2: Melody First ───────────────────────
-        #
-        # REAL electronic music track balance:
-        #   - 5 melodic/harmonic tracks (Bass, Lead, Chord, Arp, Sub)
-        #   - 3 rhythm tracks (Kick, Hats, Snare)
-        #
-        # Track indices (0-based):
-        T_KICK  = 0   # Kick Drum          — the pulse
-        T_BASS  = 1   # Melodic Bass       — harmonic anchor, plays NOTES, not just a thud
-        T_SUB   = 2   # Sub / 808          — low-frequency body
-        T_LEAD  = 3   # Lead Synth         — main melodic hook, always present in verse/drop
-        T_CHORD = 4   # Chord Pad / Stab   — harmonic color (chords, stabs, pads)
-        T_ARP   = 5   # Arp / Pluck        — rhythmic melodic layer, texture
-        T_HAT   = 6   # Hi-Hats / Rhythm   — groove and movement
-        T_SNARE = 7   # Snare / Clap       — backbeat
-
-        # ── Per-section active track rules ───────────────────────────────────
-        # RULE: Melody tracks are ALWAYS the CENTER of the mix.
-        # Drums support the melody — not the other way around.
-        SECTION_ACTIVE_TRACKS = {
-            # Intro: bass + subtle melody hint + rhythm skeleton
-            "intro":       [T_KICK, T_BASS, T_CHORD, T_HAT],
-
-            # Verse: full harmonic bed + lead melody introduced
-            "verse":       [T_KICK, T_BASS, T_SUB, T_LEAD, T_CHORD, T_HAT, T_SNARE],
-
-            # Build: melody escalates, arp adds motion, tension before drop
-            "build":       [T_KICK, T_BASS, T_LEAD, T_ARP, T_HAT, T_SNARE],
-
-            # Drop: EVERYTHING — the payoff moment
-            "drop":        [T_KICK, T_BASS, T_SUB, T_LEAD, T_CHORD, T_ARP, T_HAT, T_SNARE],
-
-            # Breakdown: NO drums, just pure melody and atmosphere
-            # This is the emotional core — pads, lead, bass harmonics
-            "breakdown":   [T_BASS, T_LEAD, T_CHORD, T_ARP],
-
-            # Outro: mirror intro — remove lead, keep bass + rhythm
-            "outro":       [T_KICK, T_BASS, T_CHORD, T_HAT],
-        }
+        # ── Theory Engine: Parse prompt → musical intent ─────────────────────
+        # Bypass the broken neural model entirely.
+        # regex_parse_intent + _legacy_tokens_to_json IS the working pipeline.
+        # It generated the real musical content in the user's existing song.
+        from midi_composer import regex_parse_intent, MIDIComposer
 
         s_len = max(song_length, 16)
 
-        def build_sections(n):
-            q = max(1, n // 8)
-            sections = [
-                {"name": "Intro A",     "type": "intro",     "start": 0,          "end": min(q-1,        n-1), "desc": "Bass and chords filter in, kick skeleton"},
-                {"name": "Intro B",     "type": "intro",     "start": q,          "end": min(q*2-1,      n-1), "desc": "Melody hints appear, groove builds"},
-                {"name": "Verse 1",     "type": "verse",     "start": q*2,        "end": min(q*3-1,      n-1), "desc": "Lead melody introduced, full harmonic groove"},
-                {"name": "Verse 2",     "type": "verse",     "start": q*3,        "end": min(q*3,        n-1), "desc": "Groove deepens, arp texture added"},
-                {"name": "Build 1",     "type": "build",     "start": q*3+1,      "end": min(q*4-1,      n-1), "desc": "Melody climbs, energy rises toward drop"},
-                {"name": "Drop 1A",     "type": "drop",      "start": q*4,        "end": min(q*4+q//2-1, n-1), "desc": "Main hook at full energy — all layers hit"},
-                {"name": "Drop 1B",     "type": "drop",      "start": q*4+q//2,   "end": min(q*5-1,      n-1), "desc": "Hook repeats, groove locked in"},
-                {"name": "Drop 1C",     "type": "drop",      "start": q*5,        "end": min(q*5,        n-1), "desc": "Final bar of drop with variation"},
-                {"name": "Breakdown",   "type": "breakdown", "start": q*5+1,      "end": min(q*6,        n-1), "desc": "No drums — pure melody, pads, atmosphere"},
-                {"name": "Build 2",     "type": "build",     "start": q*6+1,      "end": min(q*7-1,      n-1), "desc": "Kick returns over melody, climax builds"},
-                {"name": "Drop 2A",     "type": "drop",      "start": q*7,        "end": min(q*7+q//2-1, n-1), "desc": "Maximum energy — all elements, melodic peak"},
-                {"name": "Drop 2B",     "type": "drop",      "start": q*7+q//2,   "end": min(n-q-1,      n-1), "desc": "Groove variation, lead takes melodic detour"},
-                {"name": "Outro A",     "type": "outro",     "start": max(0,n-q), "end": min(max(0,n-q//2-1), n-1), "desc": "Lead fades, bass and chords remain"},
-                {"name": "Outro B",     "type": "outro",     "start": max(0,n-q//2), "end": n-1,                    "desc": "Kick and bass, rhythm fades for DJ mix-out"},
-            ]
-            valid = []
-            for s in sections:
-                s["start"] = min(max(int(s["start"]), 0), n-1)
-                s["end"]   = min(max(int(s["end"]),   s["start"]), n-1)
-                valid.append(s)
-            return valid
+        update_task(task_id, {"message": "Parsing musical intent from prompt..."})
+        intent = regex_parse_intent(prompt)
 
-        plan = {
-            "plan": f"Electronic Extended Mix (Melody-First) — {prompt}",
-            "sections": build_sections(s_len),
-            "commands": [
-                {"type": "init_arrangement", "patterns": s_len},
-                {"type": "add_track", "track": 0, "name": "Kick Drum"},
-                {"type": "add_track", "track": 1, "name": "Bass Synth"},
-                {"type": "add_track", "track": 2, "name": "Sub / 808"},
-                {"type": "add_track", "track": 3, "name": "Lead Synth"},
-                {"type": "add_track", "track": 4, "name": "Chord Pad"},
-                {"type": "add_track", "track": 5, "name": "Arp / Pluck"},
-                {"type": "add_track", "track": 6, "name": "Hi-Hats"},
-                {"type": "add_track", "track": 7, "name": "Snare / Clap"},
-            ]
-        }
+        # Override BPM if specified in task (user may set it in the plugin)
+        if task.get("bpm"):
+            intent["bpm"] = int(task["bpm"])
 
-        # Step 2: Neural MIDI Generation per Section per Track
-        final_midi_commands = []
-        if plan and "sections" in plan and "commands" in plan:
-            sections = plan.get("sections", [])
-            tracks_to_fill = [c for c in plan["commands"] if c.get("type") == "add_track"]
+        # Add section name labels for the pattern sequence
+        # _legacy_tokens_to_json handles structure via progress fractions
+        intent["song_length"] = s_len
 
-            composer = get_midi_composer()
-            composer.clear_cache()
+        update_task(task_id, {"message": f"Composing {s_len}-pattern structured song ({intent['bpm']} BPM, {intent['scale']} scale)..."})
 
-            drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum", "rim", "crash", "ride"]
-
-            for section in sections:
-                sec_name = section.get("name", "Section")
-                sec_type = section.get("type", "drop").lower()
-                start_p  = int(section.get("start", 0))
-                end_p    = int(section.get("end", 0))
-                sec_desc = section.get("desc", "")
-
-                # Which tracks are allowed to generate notes in this section?
-                active_tracks = SECTION_ACTIVE_TRACKS.get(sec_type, list(range(8)))
-
-                update_task(task_id, {"message": f"Neural Dreaming: [{sec_name}] Patterns {start_p}-{end_p}..."})
-
-                for t_info in tracks_to_fill:
-                    track_name = t_info.get("name", "Synth")
-                    track_idx  = t_info.get("track", 0)
-
-                    # ── KEY CHANGE: skip tracks not active in this section ──
-                    if track_idx not in active_tracks:
-                        continue
-
-                    forced_inst = track_idx
-                    is_drum = any(k in track_name.lower() for k in drum_keywords)
-
-                    role_context = (
-                        f"Section: {sec_name} ({sec_type}). Track: {track_name}. "
-                        f"Goal: {sec_desc}. Instrument Slot: {forced_inst}. Song: {prompt}"
-                    )
-
-                    raw_output = composer.generate_midi_sequence(
-                        role_prompt=role_context,
-                        instruments=instruments,
-                        plan_context=plan.get("plan", prompt),
-                        forced_instrument=forced_inst
-                    )
-
-                    base_commands = composer.tokens_to_renoise_json(
-                        raw_output,
-                        song_length=1,
-                        target_track=track_idx,
-                        forced_instrument=forced_inst,
-                        is_drum=is_drum
-                    )
-
-                    for p_idx in range(start_p, end_p + 1):
-                        for b_cmd in base_commands:
-                            if b_cmd.get("type") in ["set_note", "note_off"]:
-                                new_cmd = b_cmd.copy()
-                                new_cmd["pattern"] = p_idx
-                                final_midi_commands.append(new_cmd)
-        
-        commands = final_midi_commands
+        # Call the theory engine directly — it generates all patterns with
+        # Intro / Verse / Build / Drop / Breakdown / Outro structure built-in
+        composer = MIDIComposer()
+        commands = composer._legacy_tokens_to_json(intent, song_length=s_len)
         
         # 1. Structure first: BPM, Arrangement, Tracks
         # 2. Performance: Notes, Offs

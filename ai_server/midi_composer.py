@@ -378,16 +378,16 @@ def regex_parse_intent(prompt: str) -> dict:
         if any(kw in p for kw in kws):
             roles.append({"name": role_name_map[role_key], "pattern": role_key})
 
-    # Always guarantee full 8-track drum + synth kit
+    # Melody-first 8-track kit: 5 melodic/harmonic + 3 rhythm
     full_kit = [
-        {"name": "Kick",       "pattern": "kick"},
-        {"name": "Snare",      "pattern": "snare"},
-        {"name": "Clap",       "pattern": "clap"},
-        {"name": "Closed HH",  "pattern": "hihat"},
-        {"name": "Open HH",    "pattern": "open_hat"},
-        {"name": "Sub Bass",   "pattern": "root_walk"},
-        {"name": "Lead Synth", "pattern": "melodic"},
-        {"name": "Synth Pad",  "pattern": "sweep"},
+        {"name": "Sub Bass",   "pattern": "root_walk"},   # T0: melodic bass
+        {"name": "Lead Synth", "pattern": "lead_phrase"}, # T1: main hook
+        {"name": "Synth Pad",  "pattern": "pad_sustain"}, # T2: harmonic pad
+        {"name": "Arp",        "pattern": "lead_riff"},   # T3: arp movement
+        {"name": "Bass Stab",  "pattern": "bass_arp"},    # T4: rhythmic bass
+        {"name": "Kick",       "pattern": "kick"},        # T5: kick
+        {"name": "Snare",      "pattern": "snare"},       # T6: snare/clap
+        {"name": "Closed HH",  "pattern": "hihat"},       # T7: hats
     ]
     existing_names = {r["name"].lower() for r in roles}
     for default_role in full_kit:
@@ -398,8 +398,9 @@ def regex_parse_intent(prompt: str) -> dict:
             break
 
     cfg["roles"] = roles[:8]
-    cfg["chord_progression"] = ["i","VI","III","VII"]
-    cfg["lines"] = 128  # Full 128-line pattern
+    # Richer chord progression for more harmonic variety
+    cfg["chord_progression"] = ["i", "VI", "III", "VII"]
+    cfg["lines"] = 64   # 64 lines = 16 bars per pattern (standard)
     return cfg
 
 
@@ -784,55 +785,87 @@ class MIDIComposer:
         commands.append({"type": "set_lpb", "lpb": int(lpb)})
         commands.append({"type": "init_arrangement", "patterns": int(song_length)})
 
+        # DJ-Standard structure zones (fraction of total patterns)
+        # 0-12%:  Intro    — kick + bass + pad, no lead
+        # 12-38%: Verse    — kick + bass + lead + pad, no heavy arp
+        # 38-50%: Build    — all melodic layers escalate + drums
+        # 50-75%: Drop 1   — full energy, all 8 tracks
+        # 75-87%: Breakdown — NO kick/snare, melody + pads only
+        # 87-100%: Drop 2 / Outro — full then strip back
+
+        # Which roles (by name keyword) are SILENT per section
+        SILENT_IN = {
+            "intro":     {"lead", "arp"},
+            "verse":     {"arp"},
+            "build":     set(),
+            "drop":      set(),
+            "breakdown": {"kick", "snare", "clap", "closed hh", "open hh"},
+            "outro":     {"lead", "arp"},
+        }
+
+        def section_type(progress):
+            if progress < 0.12:  return "intro"
+            if progress < 0.38:  return "verse"
+            if progress < 0.50:  return "build"
+            if progress < 0.75:  return "drop"
+            if progress < 0.87:  return "breakdown"
+            return "outro"
+
+        # Chord progressions that change between sections for harmonic variety
+        SECTION_CHORDS = {
+            "intro":     ["i", "VI"],
+            "verse":     ["i", "VI", "III", "VII"],
+            "build":     ["i", "v", "VI", "VII"],
+            "drop":      ["i", "VI", "III", "VII"],
+            "breakdown": ["VI", "III", "VII", "i"],
+            "outro":     ["i", "VI"],
+        }
+
         # 2. Multi-Pattern Arrangement Loop
         for p_idx in range(song_length):
-            # Simple Heuristic for Electronic Music Structure:
-            # Intro: 0-15%, Verse: 15-45%, Build: 45-65%, Drop: 65-85%, Outro: 85-100%
             progress = p_idx / max(1, song_length)
-            is_intro = progress < 0.10 # Shorter intro
-            is_outro = progress > 0.90 # Shorter outro
-            is_drop = 0.50 < progress < 0.85 # Longer main section
+            sec = section_type(progress)
+            silent_keywords = SILENT_IN.get(sec, set())
+            sec_prog = SECTION_CHORDS.get(sec, prog)
 
             for i, role in enumerate(roles):
-                track_idx = i # 0-based
-                
-                # Arrangement Logic: Decide if this instrument is active in this pattern
-                # Always active: Kick, Sub Bass (except Outro)
-                # Build/Drop only: High-energy Lead
+                track_idx = i
                 role_name = role["name"].lower()
-                is_active = True
-                
-                if "lead" in role_name:
-                    if is_intro or is_outro: is_active = False # Leads only in main
-                if "snare" in role_name or "clap" in role_name:
-                    if is_intro and p_idx % 2 != 0: is_active = False # Half-intensity drums
-                
-                if not is_active:
+
+                # Check if this role should be silent in this section
+                is_silent = any(kw in role_name for kw in silent_keywords)
+                if is_silent:
                     continue
 
+                # Register track on first pattern only
                 if p_idx == 0:
-                    # Only add track definition once
                     commands.append({"type": "add_track", "track": track_idx, "name": role["name"]})
-                
-                # Generate notes (optionally vary the pattern a bit based on p_idx)
+
+                # Vary the pattern style slightly across sections
+                pat_id = role["pattern"]
+                if sec == "breakdown" and "bass" in role_name:
+                    pat_id = "bass_ostinato"   # Slower bass in breakdown
+                if sec == "build" and "lead" in role_name:
+                    pat_id = "lead_riff"       # More intense riff in build
+                if sec == "drop" and "bass" in role_name:
+                    pat_id = "bass_ostinato"   # Locked-in bass groove in drop
+
                 events = role_to_events(
-                    role["name"], role["pattern"], None, lines, lpb,
-                    prog, root, scale
+                    role["name"], pat_id, None, lines, lpb,
+                    sec_prog, root, scale
                 )
-                
-                # Convert to Renoise commands
+
                 for line, note in events:
                     commands.append({
                         "type": "set_note",
                         "track": track_idx,
-                        "pattern": p_idx, # Targeted pattern
+                        "pattern": p_idx,
                         "line": line,
                         "note": note,
                         "instrument": i,
                         "volume": "7F"
                     })
-                    # Add a note-off 2 lines later for non-pads
-                    if "pad" not in role["name"].lower():
+                    if "pad" not in role_name:
                         off_line = line + 2
                         if off_line < lines:
                             commands.append({
