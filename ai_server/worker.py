@@ -146,48 +146,36 @@ def run_compose_native_midi_bg(task):
         song_length = task.get("song_length", 16)
         instruments = task.get("instruments", [])
         
-        # ── Theory Engine: Parse prompt → musical intent ─────────────────────
-        # Bypass the broken neural model entirely.
-        # regex_parse_intent + _legacy_tokens_to_json IS the working pipeline.
-        # It generated the real musical content in the user's existing song.
-        from midi_composer import regex_parse_intent, MIDIComposer
+        # ── Anticipatory Music Transformer (Stanford, 359M params) ────────────
+        # Real AI trained on 174,000+ MIDI songs. No more random patterns.
+        from amt_wrapper import AMTWrapper
 
         s_len = max(song_length, 16)
 
-        update_task(task_id, {"message": "Parsing musical intent from prompt..."})
-        intent = regex_parse_intent(prompt)
+        update_task(task_id, {"message": "Loading Anticipatory Music Transformer..."})
 
-        # Override BPM if specified in task (user may set it in the plugin)
-        if task.get("bpm"):
-            intent["bpm"] = int(task["bpm"])
+        amt = AMTWrapper()
 
-        # Add section name labels for the pattern sequence
-        # _legacy_tokens_to_json handles structure via progress fractions
-        intent["song_length"] = s_len
+        # Override BPM if specified in task
+        override_bpm = int(task["bpm"]) if task.get("bpm") else None
 
-        update_task(task_id, {"message": f"Composing {s_len}-pattern structured song ({intent['bpm']} BPM, {intent['scale']} scale)..."})
+        def progress_cb(msg):
+            update_task(task_id, {"message": msg})
 
-        # Call the theory engine directly — it generates all patterns with
-        # Intro / Verse / Build / Drop / Breakdown / Outro structure built-in
-        composer = MIDIComposer()
-        commands = composer._legacy_tokens_to_json(intent, song_length=s_len)
+        commands = amt.generate_song(
+            prompt=prompt,
+            song_length=s_len,
+            bpm=override_bpm,
+            update_fn=progress_cb
+        )
         
-        # 1. Structure first: BPM, Arrangement, Tracks
-        # 2. Performance: Notes, Offs
-        # 3. Polish: Lua code, Effects
-        
-        # Merge and filter
-        if plan is None:
-            plan = {"plan": "Default Plan (Conductor Error)", "commands": []}
-        
-        all_raw_commands = commands + plan.get("commands", [])
-        
+        # ── Order commands for Renoise ────────────────────────────────────────
         ordered_commands = []
-        # Priority 1: Setup
-        for c in all_raw_commands:
+
+        # Priority 1: Setup (BPM, LPB, arrangement, tracks)
+        for c in commands:
             ctype = c.get("type")
             if ctype in ["init_arrangement", "set_bpm", "set_lpb", "add_track"]:
-                # Prevent duplicate system commands
                 if ctype == "init_arrangement" and any(x["type"] == "init_arrangement" for x in ordered_commands):
                     continue
                 if ctype == "set_bpm" and any(x["type"] == "set_bpm" for x in ordered_commands):
@@ -195,17 +183,15 @@ def run_compose_native_midi_bg(task):
                 if ctype == "set_lpb" and any(x["type"] == "set_lpb" for x in ordered_commands):
                     continue
                 if ctype == "add_track":
-                    existing_track_indices = [x.get("track") for x in ordered_commands if x["type"] == "add_track"]
-                    if c.get("track") in existing_track_indices:
+                    existing = [x.get("track") for x in ordered_commands if x["type"] == "add_track"]
+                    if c.get("track") in existing:
                         continue
                 ordered_commands.append(c)
         
-        # Priority 2: Notes
+        # Priority 2: Notes (bulk format for efficiency)
         bulk_notes = []
-        for c in all_raw_commands:
+        for c in commands:
             if c.get("type") in ["set_note", "note_off"]:
-                # N|track|pattern|line|note|instrument|volume
-                # O|track|pattern|line
                 if c.get("type") == "set_note":
                     note_str = f"N|{c['track']}|{c.get('pattern', 0)}|{c['line']}|{c['note']}|{c.get('instrument', c['track'])}|{c.get('volume', '7F')}"
                 else:
@@ -219,14 +205,15 @@ def run_compose_native_midi_bg(task):
             })
         
         # Priority 3: Everything else (Lua, automation)
-        for c in all_raw_commands:
+        for c in commands:
             if c.get("type") not in ["init_arrangement", "set_bpm", "set_lpb", "add_track", "set_note", "note_off"]:
                 ordered_commands.append(c)
 
+        note_count = len(bulk_notes)
         update_task(task_id, {
             "status": "success",
             "commands": ordered_commands,
-            "message": f"Composition Complete! {plan.get('plan', 'Ready.')}"
+            "message": f"AMT Composition Complete! {note_count} notes generated."
         })
             
     except Exception as e:
