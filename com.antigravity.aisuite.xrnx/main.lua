@@ -516,7 +516,7 @@ local function execute_command(cmd)
 end
 
 --------------------------------------------------------------------------------
--- Ollama Chat Composer UI
+-- AMT Composer UI
 --------------------------------------------------------------------------------
 
 local function compose_with_ai()
@@ -589,7 +589,7 @@ local function compose_with_ai()
     
     local json_body = json.encode(payload)
     
-    renoise.app():show_status("AI Suite: Neural Engine is dreaming up a track...")
+    renoise.app():show_status("AI Suite: Anticipatory Music Transformer is composing...")
     
     local target_url = options.server_url.value .. "/compose_native_midi"
     
@@ -599,7 +599,7 @@ local function compose_with_ai()
         local ok, data = pcall(json.decode, res)
         if ok and data then
           if data.commands or (data.status == "pending" and data.task_id) then
-             response_list:add_line("[Neural Engine]: Sequence requested. Processing on GPU...")
+             response_list:add_line("[AMT]: Sequence requested. Processing on GPU...")
              if data.task_id then
                 poll_task_status(data.task_id, function(final_data)
                    if final_data.commands and #final_data.commands > 0 then
@@ -618,7 +618,7 @@ local function compose_with_ai()
                       local total = #all_lines
                       if total == 0 then
                          renoise.app():show_status("AI Suite: Generation Complete! (No notes in pattern)")
-                         response_list:add_line("[Neural Engine]: Setup complete.")
+                         response_list:add_line("[AMT]: Setup complete.")
                          return
                       end
                       
@@ -650,11 +650,11 @@ local function compose_with_ai()
                         idx = end_idx + 1
                         
                         if idx <= total then
-                          renoise.app():show_status(string.format("AI Suite: Injecting Neural MIDI... %d%%", math.floor((count/total)*100)))
+                          renoise.app():show_status(string.format("AI Suite: Injecting AI MIDI... %d%%", math.floor((count/total)*100)))
                         else
                           renoise.tool():remove_timer(process_chunk)
                           renoise.app():show_status("AI Suite: Generation Complete!")
-                          response_list:add_line(string.format("[Neural Engine]: Generated %d commands. Arrangement applied!", count))
+                          response_list:add_line(string.format("[AMT]: Generated %d commands. Arrangement applied!", count))
                           response_list:scroll_to_last_line()
                           if ai_dialog and ai_dialog.visible then
                             ai_dialog:close()
@@ -664,7 +664,7 @@ local function compose_with_ai()
                       
                       renoise.tool():add_timer(process_chunk, 10)
                    else
-                      response_list:add_line("[Neural Engine]: Error: 0 valid notes returned.")
+                      response_list:add_line("[AMT]: Error: 0 valid notes returned.")
                    end
                 end)
              end
@@ -716,9 +716,9 @@ local function compose_with_ai()
     
     -- Header Section
     vb:row {
-      vb:text { text = "🧠 Neural MIDI Architect (Text2midi AAAI 2025)", font = "big", style = "strong" }
+      vb:text { text = "✨ Anticipatory Music Transformer (Stanford CRFM)", font = "big", style = "strong" }
     },
-    vb:text { text = "Mac Studio MPS Edition. Describe your desired arrangement below:", font = "italic" },
+    vb:text { text = "Mac Studio MPS Native. Describe your desired arrangement below:", font = "italic" },
     
     -- Conversation Box
     response_list,
@@ -1273,13 +1273,13 @@ end
 --------------------------------------------------------------------------------
 
 -- Main Menu
-renoise.tool():add_menu_entry { name = "Main Menu:Tools:AI Integration:Compose Track with AI (Ollama)...", invoke = compose_with_ai }
+renoise.tool():add_menu_entry { name = "Main Menu:Tools:AI Integration:Compose Track with AMT...", invoke = compose_with_ai }
 
 renoise.tool():add_menu_entry { name = "Main Menu:Tools:AI Integration:Convert Single Stem -> MIDI...", invoke = import_single_stem_to_midi }
 renoise.tool():add_menu_entry { name = "Main Menu:Tools:AI Integration:Preferences...", invoke = configure_api_preferences }
 
 -- Context Menus (Right Click)
-renoise.tool():add_menu_entry { name = "Pattern Editor:AI Integration:Compose Track with AI (Ollama)...", invoke = compose_with_ai }
+renoise.tool():add_menu_entry { name = "Pattern Editor:AI Integration:Compose Track with AMT...", invoke = compose_with_ai }
 
 renoise.tool():add_menu_entry { name = "Pattern Editor:AI Integration:Convert Single Stem -> MIDI...", invoke = import_single_stem_to_midi }
 renoise.tool():add_menu_entry { name = "Sample Editor:AI Integration:Convert Sample -> MIDI...", invoke = import_single_stem_to_midi }
