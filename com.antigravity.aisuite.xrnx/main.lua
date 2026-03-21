@@ -6,7 +6,8 @@ local json = require "json"
 
 local options = renoise.Document.create("ScriptingToolPreferences") {
   server_url = "http://127.0.0.1:5055",
-  api_key = "my_super_secret_proxmox_key"
+  api_key = "my_super_secret_proxmox_key",
+  sample_library_path = ""
 }
 
 renoise.tool().preferences = options
@@ -193,6 +194,139 @@ local chat_history = {
 -- AI Command Executor
 --------------------------------------------------------------------------------
 
+--------------------------------------------------------------------------------
+-- Smart Sample Library Finder
+--------------------------------------------------------------------------------
+
+-- Keywords map: track role keywords -> search terms for matching samples
+local SAMPLE_KEYWORDS = {
+  ["kick"]        = {"kick", "bd", "bass_drum", "bassdrum", "808"},
+  ["sub"]         = {"sub", "bass", "low"},
+  ["mid bass"]    = {"bass", "reese", "mid", "growl"},
+  ["reese"]       = {"reese", "bass", "growl"},
+  ["hat"]         = {"hat", "hh", "hihat", "hi_hat"},
+  ["snare"]       = {"snare", "sd", "clap"},
+  ["clap"]        = {"clap", "snare"},
+  ["perc"]        = {"perc", "shaker", "clave", "rimshot", "rim"},
+  ["pad"]         = {"pad", "atmo", "atmosphere", "chord", "strings"},
+  ["lead"]        = {"lead", "synth", "arp", "pluck"},
+  ["arp"]         = {"arp", "lead", "pluck"},
+}
+
+local AUDIO_EXTENSIONS = {"wav", "flac", "aif", "aiff", "mp3", "ogg", "xi"}
+
+local function is_audio_file(filename)
+  local ext = filename:match("%.([^%.]+)$")
+  if not ext then return false end
+  ext = ext:lower()
+  for _, e in ipairs(AUDIO_EXTENSIONS) do
+    if ext == e then return true end
+  end
+  return false
+ end
+
+local function scan_dir_recursive(dir, results, depth)
+  depth = depth or 0
+  if depth > 4 then return end  -- Safety: max 4 levels deep
+  local ok, names = pcall(os.filenames, dir, "*")
+  if ok and names then
+    for _, name in ipairs(names) do
+      if is_audio_file(name) then
+        table.insert(results, dir .. name)
+      end
+    end
+  end
+  local ok2, dirs = pcall(os.dirnames, dir, "*")
+  if ok2 and dirs then
+    for _, d in ipairs(dirs) do
+      if d ~= "." and d ~= ".." then
+        scan_dir_recursive(dir .. d .. "/", results, depth + 1)
+      end
+    end
+  end
+end
+
+local _library_cache = nil  -- Cache so we only scan once per session
+
+local function get_library_files()
+  if _library_cache then return _library_cache end
+  local lib_path = options.sample_library_path.value
+  if not lib_path or lib_path == "" then return {} end
+  -- Ensure trailing slash
+  if lib_path:sub(-1) ~= "/" then lib_path = lib_path .. "/" end
+  local results = {}
+  scan_dir_recursive(lib_path, results)
+  _library_cache = results
+  print(string.format("[AI Suite] Sample library scan: found %d files in '%s'", #results, lib_path))
+  return results
+end
+
+local function find_best_sample(track_name)
+  local files = get_library_files()
+  if #files == 0 then return nil end
+
+  local name_lower = track_name:lower()
+
+  -- Build a list of search keywords from our map
+  local search_terms = {name_lower}  -- Always search by the raw track name too
+  for role, terms in pairs(SAMPLE_KEYWORDS) do
+    if name_lower:find(role, 1, true) then
+      for _, t in ipairs(terms) do
+        table.insert(search_terms, t)
+      end
+    end
+  end
+
+  -- Score each file by how many terms match its filename
+  local best_file = nil
+  local best_score = 0
+
+  for _, filepath in ipairs(files) do
+    local filename = filepath:match("([^/\\]+)$") or filepath
+    local fname_lower = filename:lower()
+    local score = 0
+    for _, term in ipairs(search_terms) do
+      if fname_lower:find(term, 1, true) then
+        score = score + 1
+      end
+    end
+    if score > best_score then
+      best_score = score
+      best_file = filepath
+    end
+  end
+
+  return best_file
+end
+
+local function auto_assign_sample(inst, track_name)
+  local sample_path = find_best_sample(track_name)
+  if not sample_path then return false end
+
+  -- Make sure there's a sample slot
+  if #inst.samples == 0 then
+    inst:insert_sample_at(1)
+  end
+
+  -- Load the sample
+  local ok, err = pcall(function()
+    inst.samples[1]:load_sample_data(sample_path)
+    inst.samples[1].name = track_name
+  end)
+
+  if ok then
+    print(string.format("[AI Suite] Auto-assigned '%s' -> '%s'", track_name, sample_path))
+    return true
+  else
+    print(string.format("[AI Suite] Failed to load sample for '%s': %s", track_name, tostring(err)))
+    return false
+  end
+end
+
+--------------------------------------------------------------------------------
+-- AI Command Executor
+--------------------------------------------------------------------------------
+
 local function execute_command(cmd)
   local song = renoise.song()
   
@@ -225,12 +359,16 @@ local function execute_command(cmd)
       local inst = song:instrument(new_track_idx)
       inst.name = cmd.name and ("AI: " .. cmd.name) or ("AI Instrument " .. new_track_idx)
       
-      -- Ensure it has a sample slot so it can actually be played/heard
-      if #inst.samples == 0 then
-        inst:insert_sample_at(1)
+      -- Try auto-assigning a sample from the user's library
+      local assigned = auto_assign_sample(inst, cmd.name or "")
+      if not assigned then
+        -- Fallback: ensure it at least has a blank sample slot to receive notes
+        if #inst.samples == 0 then
+          inst:insert_sample_at(1)
+        end
       end
       
-      print(string.format("AI Suite: Initialized instrument %d as '%s'", new_track_idx, inst.name))
+      print(string.format("AI Suite: Initialized instrument %d as '%s' (sample auto-assigned: %s)", new_track_idx, inst.name, tostring(assigned)))
     end
     
   elseif cmd.type == "clear_track" then
@@ -1069,20 +1207,58 @@ end
 
 local function configure_api_preferences()
   local vb = renoise.ViewBuilder()
+  
+  local lib_path_field = vb:textfield {
+    id = "sample_lib_path", width = 360, bind = options.sample_library_path
+  }
+  
   local dialog_content = vb:column {
     margin = 15,
-    spacing = 10,
-    vb:text { text = "AI Backend Server (Demucs / YourMT3+):" },
-    vb:textfield { id = "ai_server_url", width = 300, bind = options.server_url },
-    vb:text { text = "API Key:" },
-    vb:textfield { id = "api_key", width = 300, bind = options.api_key },
+    spacing = 12,
+    
+    vb:text { text = "⚡ Neural Engine Settings", font = "bold" },
+    
+    vb:row { spacing = 8,
+      vb:text { text = "AI Server URL:", width = 110 },
+      vb:textfield { id = "ai_server_url", width = 260, bind = options.server_url }
+    },
+    vb:row { spacing = 8,
+      vb:text { text = "API Key:", width = 110 },
+      vb:textfield { id = "api_key", width = 260, bind = options.api_key }
+    },
+
+    vb:space { height = 8 },
+    vb:text { text = "🎵 Sample Library (Auto-Assignment)", font = "bold" },
+    vb:text { text = "Point to your root samples folder. The AI will scan it and\nauto-load the best matching sample for each generated track.", font = "italic" },
+    
+    vb:row { spacing = 8,
+      lib_path_field,
+      vb:button {
+        text = "Browse...",
+        width = 80,
+        notifier = function()
+          local path = renoise.app():prompt_for_path("Select your samples root folder")
+          if path and path ~= "" then
+            options.sample_library_path.value = path
+            lib_path_field.text = path
+            -- Bust the cache so next generation rescans the new folder
+            _library_cache = nil
+            renoise.app():show_status("AI Suite: Sample library set to: " .. path)
+          end
+        end
+      }
+    },
+    vb:button {
+      text = "Clear Library Cache (Rescan on Next Generation)",
+      width = 440,
+      notifier = function()
+        _library_cache = nil
+        renoise.app():show_status("AI Suite: Sample library cache cleared.")
+      end
+    },
+    
     vb:space { height = 10 },
-    vb:text { text = "Local Ollama LLM (AI Composition Engine):" },
-    vb:textfield { id = "ollama_url", width = 300, bind = options.ollama_url },
-    vb:text { text = "Ollama Model:" },
-    vb:textfield { id = "ollama_model", width = 300, bind = options.ollama_model },
-    vb:space { height = 15 },
-    vb:text { text = "Changes save automatically upon closing." }
+    vb:text { text = "Settings save automatically.", font = "italic" }
   }
   renoise.app():show_custom_dialog("AI Suite Preferences", dialog_content)
 end

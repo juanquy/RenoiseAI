@@ -188,7 +188,9 @@ def run_compose_native_midi_bg(task):
                 for t_info in tracks_to_fill:
                     track_name = t_info.get("name", "Synth")
                     track_idx = t_info.get("track", 0)
-                    forced_inst = t_info.get("instrument_index") # Extracted from add_track command
+                    # Always force the instrument index to match the track index
+                    # This guarantees each Renoise track maps to its own instrument slot (00=Kick, 01=Sub Bass, etc.)
+                    forced_inst = track_idx
                     
                     # Logic to identify if this is a drum track
                     drum_keywords = ["kick", "snare", "hat", "clap", "perc", "drum", "rim", "crash", "ride"]
